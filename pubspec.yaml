@@ -1,0 +1,57 @@
+name: qorvia_maps_sdk
+description: "Flutter SDK for geo services: navigation, routing, geocoding with MapLibre GL maps."
+version: 0.2.2
+homepage: https://github.com/QorviaMapKit/qorvia_maps_sdk
+
+environment:
+  sdk: ^3.0.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP client
+  dio: ^5.4.0
+
+  # Models
+  freezed_annotation: ^3.0.0
+  json_annotation: ^4.8.1
+  equatable: ^2.0.5
+
+  # Map
+  maplibre_gl: ^0.25.0
+
+  # App bundle info
+  package_info_plus: ^8.0.0
+
+  # Geolocation
+  geolocator: ^11.0.0
+  permission_handler: ^11.3.0
+
+  # SVG support
+  flutter_svg: ^2.0.10
+
+  # Compass
+  flutter_compass: ^0.8.0
+
+  # Voice guidance (TTS)
+  flutter_tts: ^3.8.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  mockito: ^5.4.4
+  mocktail: ^1.0.3
+
+  #GENERATION
+  build_runner: ^2.4.10
+  json_serializable: ^6.8.0
+  flutter_gen_runner: ^5.4.0
+  drift_dev: ^2.11.0
+  freezed: ^3.0.0
+
+flutter:
+  assets:
+    - assets/icons/
