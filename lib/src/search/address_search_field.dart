@@ -15,11 +15,13 @@ import 'selected_address.dart';
 /// - Autocomplete results from geocoding API
 /// - Optional "select on map" button
 /// - Focus state management
+/// - Location-biased search results
 ///
 /// Example:
 /// ```dart
 /// AddressSearchField(
 ///   config: AddressSearchFieldConfig(label: 'Откуда'),
+///   userLocation: Coordinates(lat: 53.404935, lon: 58.965423),
 ///   onAddressSelected: (address) {
 ///     print('Selected: ${address.label}');
 ///   },
@@ -31,6 +33,14 @@ class AddressSearchField extends StatefulWidget {
 
   /// Currently selected address (controlled mode).
   final SelectedAddress? value;
+
+  /// User's current location for location-biased search results.
+  /// When provided, search results will be prioritized by proximity.
+  final Coordinates? userLocation;
+
+  /// Search radius in kilometers (default: 50).
+  /// Only used when [userLocation] is provided.
+  final double radiusKm;
 
   /// Called when an address is selected from results.
   final ValueChanged<SelectedAddress>? onAddressSelected;
@@ -57,6 +67,8 @@ class AddressSearchField extends StatefulWidget {
     super.key,
     this.config = const AddressSearchFieldConfig(label: ''),
     this.value,
+    this.userLocation,
+    this.radiusKm = 50,
     this.onAddressSelected,
     this.onMapSelectPressed,
     this.onFocusChanged,
@@ -187,7 +199,16 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       return;
     }
 
-    debugPrint('[AddressSearchField] Searching for: $query');
+    final userLoc = widget.userLocation;
+    if (userLoc != null) {
+      debugPrint(
+        '[AddressSearchField] Searching with user location: '
+        'lat=${userLoc.lat}, lon=${userLoc.lon}, radius=${widget.radiusKm}km',
+      );
+    } else {
+      debugPrint('[AddressSearchField] Searching without location bias');
+    }
+
     setState(() {
       _isSearching = true;
     });
@@ -197,6 +218,10 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
         query: query,
         limit: 6,
         language: 'ru',
+        userLat: userLoc?.lat,
+        userLon: userLoc?.lon,
+        radiusKm: userLoc != null ? widget.radiusKm : null,
+        biasLocation: userLoc != null ? true : null,
       );
 
       debugPrint(

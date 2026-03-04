@@ -1,7 +1,7 @@
 name: qorvia_maps_sdk
 description: "Flutter SDK for geo services: navigation, routing, geocoding with MapLibre GL maps."
-version: 0.2.3
-homepage: https://github.com/QorviaMapKit/qorvia_maps_sdk
+version: 0.2.4
+homepage: https://github.com/plotnikov228/qorvia_maps_sdk
 
 environment:
   sdk: ^3.0.0

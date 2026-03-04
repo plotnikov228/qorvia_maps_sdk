@@ -26,7 +26,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  qorvia_maps_sdk: ^0.2.3
+  qorvia_maps_sdk: ^0.2.4
 ```
 
 ### Platform Setup
@@ -166,6 +166,18 @@ for (final result in response.results) {
   print('${result.displayName}: ${result.coordinates}');
 }
 
+// Geocoding with location bias (prioritize results near user)
+final nearbyResponse = await client.geocode(
+  query: 'train station',
+  limit: 5,
+  language: 'en',
+  userLat: 53.404935,
+  userLon: 58.965423,
+  radiusKm: 50,
+  biasLocation: true,
+);
+// Results are sorted by proximity to the specified coordinates
+
 // Coordinates to address
 final address = await client.reverse(
   coordinates: Coordinates(lat: 55.7539, lon: 37.6208),
@@ -231,8 +243,8 @@ API client for all geo services.
 | Method | Description |
 |--------|-------------|
 | `route()` | Calculate route between points |
-| `geocode()` | Convert address to coordinates |
-| `search()` | Single best match for query |
+| `geocode()` | Convert address to coordinates (with optional location bias) |
+| `search()` | Single best match for query (with optional location bias) |
 | `reverse()` | Convert coordinates to address |
 | `quota()` | Get API quota information |
 | `usage()` | Get usage statistics |
@@ -322,6 +334,8 @@ Turn-by-turn navigation widget.
 | `showEtaPanel` | `true` | Show ETA/distance |
 | `showSpeedIndicator` | `true` | Show current speed |
 | `snapToRouteEnabled` | `true` | Snap cursor to route |
+| `cursorColor` | `null` | Navigation arrow fill color |
+| `cursorBorderColor` | `null` | Navigation arrow border color |
 
 ### NavigationController
 

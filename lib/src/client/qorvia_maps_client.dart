@@ -154,10 +154,14 @@ class QorviaMapsClient {
   /// [limit] - Maximum number of results (1-20, default: 5).
   /// [language] - Language for results (default: 'en').
   /// [countryCodes] - Filter by country codes (e.g., ['ru', 'kz']).
+  /// [userLat] - User's latitude for location-biased results.
+  /// [userLon] - User's longitude for location-biased results.
+  /// [radiusKm] - Search radius in kilometers (default: 50).
+  /// [biasLocation] - Whether to prioritize results near user location.
   ///
   /// Returns [GeocodeResponse] with list of results.
   ///
-  /// Example:
+  /// Example without location bias:
   /// ```dart
   /// final response = await client.geocode(
   ///   query: 'Красная площадь, Москва',
@@ -168,17 +172,39 @@ class QorviaMapsClient {
   ///   print('${result.displayName}: ${result.coordinates}');
   /// }
   /// ```
+  ///
+  /// Example with location bias:
+  /// ```dart
+  /// final response = await client.geocode(
+  ///   query: 'вокзал',
+  ///   limit: 5,
+  ///   language: 'ru',
+  ///   userLat: 53.404935,
+  ///   userLon: 58.965423,
+  ///   radiusKm: 50,
+  ///   biasLocation: true,
+  /// );
+  /// // Results will be prioritized by proximity to user location
+  /// ```
   Future<GeocodeResponse> geocode({
     required String query,
     int limit = 5,
     String language = 'en',
     List<String>? countryCodes,
+    double? userLat,
+    double? userLon,
+    double? radiusKm,
+    bool? biasLocation,
   }) {
     return _geocoding.geocode(
       query: query,
       limit: limit,
       language: language,
       countryCodes: countryCodes,
+      userLat: userLat,
+      userLon: userLon,
+      radiusKm: radiusKm,
+      biasLocation: biasLocation,
     );
   }
 
@@ -186,15 +212,25 @@ class QorviaMapsClient {
   ///
   /// Convenience method that returns just the first result.
   /// Returns null if no results found.
+  ///
+  /// [userLat], [userLon], [radiusKm], [biasLocation] - location bias params.
   Future<GeocodeResult?> search(
     String query, {
     String language = 'en',
     List<String>? countryCodes,
+    double? userLat,
+    double? userLon,
+    double? radiusKm,
+    bool? biasLocation,
   }) {
     return _geocoding.search(
       query,
       language: language,
       countryCodes: countryCodes,
+      userLat: userLat,
+      userLon: userLon,
+      radiusKm: radiusKm,
+      biasLocation: biasLocation,
     );
   }
 

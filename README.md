@@ -26,7 +26,7 @@ Flutter SDK для гео-сервисов: навигация, маршрути
 
 ```yaml
 dependencies:
-  qorvia_maps_sdk: ^0.2.3
+  qorvia_maps_sdk: ^0.2.4
 ```
 
 ### Настройка платформ
@@ -166,6 +166,18 @@ for (final result in response.results) {
   print('${result.displayName}: ${result.coordinates}');
 }
 
+// Геокодирование с приоритизацией по близости к пользователю
+final nearbyResponse = await client.geocode(
+  query: 'вокзал',
+  limit: 5,
+  language: 'ru',
+  userLat: 53.404935,
+  userLon: 58.965423,
+  radiusKm: 50,
+  biasLocation: true,
+);
+// Результаты отсортированы по близости к указанным координатам
+
 // Координаты в адрес
 final address = await client.reverse(
   coordinates: Coordinates(lat: 55.7539, lon: 37.6208),
@@ -231,8 +243,8 @@ API-клиент для всех гео-сервисов.
 | Метод | Описание |
 |-------|----------|
 | `route()` | Построить маршрут между точками |
-| `geocode()` | Преобразовать адрес в координаты |
-| `search()` | Лучшее совпадение по запросу |
+| `geocode()` | Преобразовать адрес в координаты (с опциональной приоритизацией по геолокации) |
+| `search()` | Лучшее совпадение по запросу (с опциональной приоритизацией по геолокации) |
 | `reverse()` | Преобразовать координаты в адрес |
 | `quota()` | Получить информацию о квоте API |
 | `usage()` | Получить статистику использования |
@@ -322,6 +334,8 @@ await controller.zoomOut();
 | `showEtaPanel` | `true` | Показать панель ETA/расстояния |
 | `showSpeedIndicator` | `true` | Показать текущую скорость |
 | `snapToRouteEnabled` | `true` | Привязка курсора к маршруту |
+| `cursorColor` | `null` | Цвет заливки стрелки навигации |
+| `cursorBorderColor` | `null` | Цвет границы стрелки навигации |
 
 ### NavigationController
 

@@ -1,3 +1,7 @@
+## 0.2.4
+
+- Adding personalization to geocoding results
+
 ## 0.2.3
 
 - Adding cursor customization to QorviaMapView
