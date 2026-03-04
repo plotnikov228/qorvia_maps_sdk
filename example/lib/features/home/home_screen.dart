@@ -147,18 +147,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final coordsLabel = '${coordinates.lat.toStringAsFixed(5)}, '
         '${coordinates.lon.toStringAsFixed(5)}';
 
-    _setPointState(
-      targetField,
-      SelectedPoint(coordinates: coordinates, label: coordsLabel, isLoading: true),
-    );
+    _setPoint(targetField, SelectedPoint(coordinates: coordinates, label: coordsLabel, isLoading: true));
 
-    // Fire both address resolution and route calculation in parallel
+    // Fetch address in background and update label when ready
     _resolveAddressInBackground(coordinates, targetField);
-    _updateRoutePreview();
   }
 
-  /// Sets point state without triggering side effects.
-  void _setPointState(ActiveField targetField, SelectedPoint point) {
+  void _setPoint(ActiveField targetField, SelectedPoint point) {
     setState(() {
       switch (targetField) {
         case ActiveField.from:
@@ -178,6 +173,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _isMapPickMode = false;
       _activeWaypointIndex = null;
     });
+
+    _updateRoutePreview();
   }
 
   void _resolveAddressInBackground(Coordinates coordinates, ActiveField targetField) {

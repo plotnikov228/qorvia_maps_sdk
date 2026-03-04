@@ -43,7 +43,8 @@ class _SearchFieldState extends State<SearchField>
   late Animation<double> _glowAnimation;
 
   late AnimationController _shimmerController;
-  late Animation<double> _shimmerAnimation;
+  late Animation<double> _shimmerPosition;
+  late Animation<double> _pulseAnimation;
 
   bool _isFocused = false;
 
@@ -63,11 +64,15 @@ class _SearchFieldState extends State<SearchField>
 
     _shimmerController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1800),
     );
-    _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
+    _shimmerPosition = Tween<double>(begin: -0.5, end: 1.5).animate(
       CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
     );
+    _pulseAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.5, end: 1.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.5), weight: 1),
+    ]).animate(_shimmerController);
 
     if (widget.isLoading) {
       _shimmerController.repeat();
@@ -209,71 +214,106 @@ class _SearchFieldState extends State<SearchField>
   }
 
   Widget _buildTextField() {
-    return Stack(
-      alignment: Alignment.centerLeft,
-      children: [
-        TextField(
-          controller: widget.controller,
-          focusNode: widget.focusNode,
-          textInputAction: TextInputAction.search,
-          onChanged: widget.onChanged,
-          onSubmitted: (_) => widget.onSubmitted?.call(),
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: widget.isLoading
-                ? AppColors.onSurfaceVariant.withAlpha(128)
-                : AppColors.onSurface,
-            letterSpacing: 0.1,
-          ),
-          decoration: InputDecoration(
-            hintText: widget.label,
-            hintStyle: TextStyle(
-              color: AppColors.onSurfaceVariant.withAlpha(179),
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-            ),
-            border: InputBorder.none,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          ),
+    if (!widget.isLoading) {
+      return TextField(
+        controller: widget.controller,
+        focusNode: widget.focusNode,
+        textInputAction: TextInputAction.search,
+        onChanged: widget.onChanged,
+        onSubmitted: (_) => widget.onSubmitted?.call(),
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: AppColors.onSurface,
+          letterSpacing: 0.1,
         ),
-        if (widget.isLoading)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedBuilder(
-                animation: _shimmerAnimation,
-                builder: (context, _) {
-                  return ShaderMask(
-                    shaderCallback: (bounds) {
-                      return LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: const [
-                          Color(0x00000000),
-                          Color(0x33FFFFFF),
-                          Color(0x00000000),
-                        ],
-                        stops: [
-                          (_shimmerAnimation.value - 0.3).clamp(0.0, 1.0),
-                          _shimmerAnimation.value.clamp(0.0, 1.0),
-                          (_shimmerAnimation.value + 0.3).clamp(0.0, 1.0),
-                        ],
-                      ).createShader(bounds);
-                    },
-                    blendMode: BlendMode.srcATop,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: AppColors.primary.withAlpha(51),
-                      ),
-                    ),
-                  );
-                },
+        decoration: InputDecoration(
+          hintText: widget.label,
+          hintStyle: TextStyle(
+            color: AppColors.onSurfaceVariant.withAlpha(179),
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+          ),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        ),
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Text with pulsing opacity
+            Opacity(
+              opacity: _pulseAnimation.value,
+              child: Text(
+                widget.controller.text.isNotEmpty
+                    ? widget.controller.text
+                    : widget.label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.onSurfaceVariant,
+                  letterSpacing: 0.1,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-      ],
+            const SizedBox(height: 4),
+            // Shimmer bar under text
+            ClipRRect(
+              borderRadius: BorderRadius.circular(1.5),
+              child: SizedBox(
+                height: 3,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    final barWidth = width * 0.4;
+                    final pos = _shimmerPosition.value;
+                    final left = (pos * width) - barWidth / 2;
+                    return Stack(
+                      children: [
+                        // Track
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withAlpha(20),
+                            borderRadius: BorderRadius.circular(1.5),
+                          ),
+                        ),
+                        // Moving indicator
+                        Positioned(
+                          left: left,
+                          top: 0,
+                          bottom: 0,
+                          width: barWidth,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(1.5),
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.primary.withAlpha(0),
+                                  AppColors.primary.withAlpha(140),
+                                  AppColors.primary.withAlpha(0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
