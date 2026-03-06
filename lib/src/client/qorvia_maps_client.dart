@@ -12,7 +12,10 @@ import '../services/geocoding_service.dart';
 import '../services/reverse_service.dart';
 import '../services/quota_service.dart';
 import '../services/tile_service.dart';
+import '../services/smart_search_service.dart';
 import '../models/tile/tile_url_response.dart';
+import '../models/smart_search/smart_search_response.dart';
+import '../models/smart_search/smart_search_result.dart';
 import 'http_client.dart';
 
 /// Main client for Qorvia Maps SDK.
@@ -45,6 +48,7 @@ class QorviaMapsClient {
   ReverseService? _reverseService;
   QuotaService? _quotaService;
   TileService? _tileService;
+  SmartSearchService? _smartSearchService;
 
   /// Creates a new QorviaMapsClient.
   ///
@@ -80,6 +84,8 @@ class QorviaMapsClient {
   ReverseService get _reverse => _reverseService ??= ReverseService(_httpClient);
   QuotaService get _quota => _quotaService ??= QuotaService(_httpClient);
   TileService get _tile => _tileService ??= TileService(_httpClient);
+  SmartSearchService get _smartSearch =>
+      _smartSearchService ??= SmartSearchService(_httpClient);
 
   // ==================== ROUTING ====================
 
@@ -319,6 +325,88 @@ class QorviaMapsClient {
   /// Returns [TileUrlResponse] with style URL and request ID.
   Future<TileUrlResponse> tileUrlResponse() {
     return _tile.getTileUrl();
+  }
+
+  // ==================== SMART SEARCH ====================
+
+  /// AI-powered natural language search.
+  ///
+  /// Automatically classifies queries and routes to appropriate provider
+  /// (ADDRESS or PLACE). Available only on paid plans with `smart_search` permission.
+  ///
+  /// [query] - Natural language search query (2-500 characters).
+  /// [lat] - User latitude (-90 to 90).
+  /// [lon] - User longitude (-180 to 180).
+  /// [radiusKm] - Search radius in kilometers (1-50, default: 10).
+  /// [limit] - Maximum number of results (1-20, default: 5).
+  /// [language] - Response language: 'ru' or 'en' (default: 'ru').
+  ///
+  /// Returns [SmartSearchResponse] with classified results.
+  ///
+  /// Example:
+  /// ```dart
+  /// final response = await client.smartSearch(
+  ///   query: 'ближайшая аптека',
+  ///   lat: 55.7558,
+  ///   lon: 37.6173,
+  ///   radiusKm: 5,
+  ///   language: 'ru',
+  /// );
+  ///
+  /// print('Query type: ${response.queryType}, provider: ${response.provider}');
+  /// for (final result in response.results) {
+  ///   print('${result.name} - ${result.distanceM}m');
+  ///   if (result.rating != null) {
+  ///     print('Rating: ${result.rating}');
+  ///   }
+  ///   if (result.photoUrl != null) {
+  ///     print('Photo: ${result.photoUrl}');
+  ///   }
+  /// }
+  /// ```
+  Future<SmartSearchResponse> smartSearch({
+    required String query,
+    required double lat,
+    required double lon,
+    int? radiusKm,
+    int? limit,
+    String? language,
+  }) {
+    return _smartSearch.smartSearch(
+      query: query,
+      lat: lat,
+      lon: lon,
+      radiusKm: radiusKm,
+      limit: limit,
+      language: language,
+    );
+  }
+
+  /// Convenience method returning first smart search result or null.
+  ///
+  /// [query] - Natural language search query (2-500 characters).
+  /// [lat] - User latitude.
+  /// [lon] - User longitude.
+  /// [radiusKm] - Search radius in kilometers (1-50, default: 10).
+  /// [language] - Response language: 'ru' or 'en' (default: 'ru').
+  ///
+  /// Returns first [SmartSearchResult] or null if no results found.
+  Future<SmartSearchResult?> smartSearchFirst({
+    required String query,
+    required double lat,
+    required double lon,
+    int? radiusKm,
+    String? language,
+  }) async {
+    final response = await smartSearch(
+      query: query,
+      lat: lat,
+      lon: lon,
+      radiusKm: radiusKm,
+      limit: 1,
+      language: language,
+    );
+    return response.firstResult;
   }
 
   // ==================== LIFECYCLE ====================

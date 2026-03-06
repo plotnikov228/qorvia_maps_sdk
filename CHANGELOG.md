@@ -1,3 +1,9 @@
+## 0.2.5
+
+- Added Smart Search API (`smartSearch()`, `smartSearchFirst()`) - AI-powered natural language search
+- Added `SmartSearchResponse` and `SmartSearchResult` models
+- Added `OpeningHoursEntry` model for place opening hours
+
 ## 0.2.4
 
 - Adding personalization to geocoding results
