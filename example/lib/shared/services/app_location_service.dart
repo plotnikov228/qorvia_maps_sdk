@@ -139,6 +139,7 @@ class AppLocationService {
     // Try direct method first
     final direct = await _locationService.getCurrentLocation(
       accuracy: LocationAccuracy.high,
+      timeout: const Duration(seconds: 10),
     );
 
     if (direct != null) {
@@ -183,6 +184,26 @@ class AppLocationService {
     _locationService.stopTracking();
     await _locationSubscription?.cancel();
     _locationSubscription = null;
+
+    // If still no result, try cached location as last resort
+    if (result == null) {
+      _log('Trying cached location as fallback');
+      final cached = await loadCachedLocation();
+      if (cached != null) {
+        _log('Using cached location', {
+          'lat': cached.lat,
+          'lon': cached.lon,
+        });
+        final cachedData = LocationData(
+          coordinates: cached,
+          accuracy: 100.0, // Low accuracy for cached
+          timestamp: DateTime.now(),
+        );
+        _lastLocationData = cachedData;
+        _lastUserLocation = cached;
+        return cachedData;
+      }
+    }
 
     return result;
   }

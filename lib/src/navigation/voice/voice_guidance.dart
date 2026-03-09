@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../models/route/route_step.dart';
 import '../navigation_logger.dart';
@@ -415,6 +417,7 @@ class VoiceGuidance {
   /// Announces arrival at destination.
   ///
   /// Queued with HIGH priority as this is an important event.
+  /// Returns a Future that completes when the speech is finished.
   Future<void> speakArrival([String? message]) async {
     if (!options.enabled || !options.announceArrival) return;
     if (_arrivalSpoken) return;
@@ -426,7 +429,68 @@ class VoiceGuidance {
       'isCustom': isCustom,
       'priority': 'high',
     });
-    _enqueue(textToSpeak, VoicePriority.high);
+
+    // Speak directly and wait for completion instead of using queue
+    // This ensures arrival message is fully spoken before navigation ends
+    await _speakAndWait(textToSpeak);
+  }
+
+  /// Speaks text and waits for TTS to complete.
+  Future<void> _speakAndWait(String text) async {
+    if (!_initialized) {
+      NavigationLogger.warn('VoiceGuidance', '_speakAndWait skipped - TTS not initialized');
+      return;
+    }
+
+    final completer = Completer<void>();
+
+    // Set up one-time completion handler
+    void onComplete() {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+    }
+
+    void onError(dynamic error) {
+      NavigationLogger.warn('VoiceGuidance', '_speakAndWait error', {'error': error});
+      if (!completer.isCompleted) {
+        completer.complete(); // Complete anyway to not block
+      }
+    }
+
+    _tts.setCompletionHandler(onComplete);
+    _tts.setErrorHandler(onError);
+
+    try {
+      NavigationLogger.info('VoiceGuidance', '_speakAndWait speaking', {
+        'text': text,
+      });
+      await _tts.speak(text);
+
+      // Wait for completion with timeout
+      await completer.future.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          NavigationLogger.warn('VoiceGuidance', '_speakAndWait timeout');
+        },
+      );
+
+      NavigationLogger.info('VoiceGuidance', '_speakAndWait completed');
+    } catch (e) {
+      NavigationLogger.error('VoiceGuidance', '_speakAndWait failed', e);
+    } finally {
+      // Restore queue completion handler
+      _tts.setCompletionHandler(() {
+        _isPlaying = false;
+        _currentItemId = null;
+        _processQueue();
+      });
+      _tts.setErrorHandler((error) {
+        _isPlaying = false;
+        _currentItemId = null;
+        _processQueue();
+      });
+    }
   }
 
   /// Announces that user has gone off-route.

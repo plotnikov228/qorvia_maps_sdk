@@ -1,3 +1,5 @@
+import '../offline/config/offline_config.dart';
+
 /// Configuration for the Qorvia Maps SDK.
 class SdkConfig {
   /// API key for authentication.
@@ -41,6 +43,15 @@ class SdkConfig {
   /// These headers enable automatic theme switching on the server side.
   final bool sendTimeHeaders;
 
+  /// Configuration for offline mode.
+  ///
+  /// If null, offline mode is disabled.
+  /// Set to [OfflineConfig()] to enable with default settings.
+  final OfflineConfig? offlineConfig;
+
+  /// Whether offline mode is enabled.
+  bool get isOfflineEnabled => offlineConfig?.enabled ?? false;
+
   const SdkConfig({
     required this.apiKey,
     this.bundleId,
@@ -54,6 +65,7 @@ class SdkConfig {
     this.routeSmoothingPointsPerCorner = 5,
     this.polylinePrecision = 1e5,
     this.sendTimeHeaders = true,
+    this.offlineConfig,
   });
 
   SdkConfig copyWith({
@@ -69,6 +81,7 @@ class SdkConfig {
     int? routeSmoothingPointsPerCorner,
     double? polylinePrecision,
     bool? sendTimeHeaders,
+    OfflineConfig? offlineConfig,
   }) {
     return SdkConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -87,6 +100,7 @@ class SdkConfig {
           routeSmoothingPointsPerCorner ?? this.routeSmoothingPointsPerCorner,
       polylinePrecision: polylinePrecision ?? this.polylinePrecision,
       sendTimeHeaders: sendTimeHeaders ?? this.sendTimeHeaders,
+      offlineConfig: offlineConfig ?? this.offlineConfig,
     );
   }
 }

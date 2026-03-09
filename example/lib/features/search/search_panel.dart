@@ -48,6 +48,13 @@ class SearchPanel extends StatefulWidget {
   /// Set to false when using inside ExpandableBottomPanel (which has its own glassmorphism).
   final bool enableGlassmorphism;
 
+  /// Whether the panel is in collapsed state.
+  /// In collapsed state, only the "From" field is shown with a hint to expand.
+  final bool isCollapsed;
+
+  /// Callback when user taps to expand the panel.
+  final VoidCallback? onExpandRequest;
+
   const SearchPanel({
     super.key,
     this.onFromChanged,
@@ -66,6 +73,8 @@ class SearchPanel extends StatefulWidget {
     this.maxWaypoints = 10,
     this.enableWaypoints = true,
     this.enableGlassmorphism = true,
+    this.isCollapsed = false,
+    this.onExpandRequest,
   });
 
   @override
@@ -119,7 +128,9 @@ class _SearchPanelState extends State<SearchPanel>
       }
     }
 
-    _log('SearchPanel initialized');
+    _log('SearchPanel initialized', {
+      'isCollapsed': widget.isCollapsed,
+    });
   }
 
   void _onFocusChange() {
@@ -380,6 +391,18 @@ class _SearchPanelState extends State<SearchPanel>
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
+    // Log state changes for debugging
+    _log('Build', {
+      'isCollapsed': widget.isCollapsed,
+      'isSearchFocused': _isSearchFocused,
+      'activeField': _activeField?.name,
+    });
+
+    // Collapsed mode: only show "From" field with expand hint
+    if (widget.isCollapsed && !_isSearchFocused) {
+      return _buildCollapsedContent(bottomPadding);
+    }
+
     final content = Padding(
       padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + bottomPadding),
       child: Column(
@@ -511,6 +534,129 @@ class _SearchPanelState extends State<SearchPanel>
               colors: [
                 Colors.white.withAlpha(242), // 95%
                 Colors.white.withAlpha(230), // 90%
+              ],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            border: Border.all(
+              color: Colors.white.withAlpha(128),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadowPrimary,
+                blurRadius: 32,
+                spreadRadius: 0,
+                offset: const Offset(0, -12),
+              ),
+              BoxShadow(
+                color: AppColors.shadowLight,
+                blurRadius: 16,
+                spreadRadius: 0,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: content,
+        ),
+      ),
+    );
+  }
+
+  /// Builds the collapsed view showing only "From" field with expand hint.
+  Widget _buildCollapsedContent(double bottomPadding) {
+    _log('Building collapsed content');
+
+    final content = Padding(
+      padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + bottomPadding),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // From field - always visible and active in collapsed mode
+          SearchField(
+            label: 'Откуда',
+            controller: _fromController,
+            focusNode: _fromFocus,
+            prefixIcon: Icons.trip_origin,
+            iconColor: AppColors.primary,
+            isLoading: widget.fromPoint?.isLoading ?? false,
+            onChanged: (value) {
+              _activeField = ActiveField.from;
+              _scheduleSearch(value);
+            },
+            onMapSelect: () => widget.onMapSelect?.call(ActiveField.from, null),
+            onSubmitted: _searchAddress,
+          ),
+
+          const SizedBox(height: 12),
+
+          // Expand hint - tap to show full panel
+          GestureDetector(
+            onTap: () {
+              _log('Expand hint tapped');
+              widget.onExpandRequest?.call();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.primary.withAlpha(40),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.keyboard_arrow_up_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Куда едем?',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Search results (show if searching in collapsed mode)
+          SearchResultsList(
+            results: _results,
+            onResultSelected: _selectResult,
+          ),
+
+          // Loading indicator
+          if (_isSearching) _buildLoadingIndicator(),
+        ],
+      ),
+    );
+
+    // Return content directly if glassmorphism is disabled
+    if (!widget.enableGlassmorphism) {
+      return content;
+    }
+
+    // Wrap with glassmorphism effect
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white.withAlpha(242),
+                Colors.white.withAlpha(230),
               ],
             ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),

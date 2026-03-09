@@ -19,6 +19,7 @@ To use the SDK, you need an API key. Go to [qorviamapkit.ru](https://qorviamapki
 - **Turn-by-turn Navigation** - Real-time navigation with state tracking
 - **Voice Guidance** - Text-to-speech navigation instructions
 - **Location Service** - GPS tracking with Kalman filtering
+- **Offline mode** — Navigation and maps without internet
 
 ## Installation
 
@@ -26,7 +27,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  qorvia_maps_sdk: ^0.2.4
+  qorvia_maps_sdk: ^0.2.7
 ```
 
 ### Platform Setup

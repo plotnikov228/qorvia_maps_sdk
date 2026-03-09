@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart';
 import '../navigation_logger.dart';
 import '../navigation_state.dart';
 import 'lanes_indicator.dart';
@@ -6,7 +7,7 @@ import 'maneuver_icons.dart';
 import 'traffic_signal_indicator.dart';
 
 /// Default blue color for turn panel (Yandex Navigator style).
-const Color kDefaultTurnPanelBlue = Color(0xFF2979FF);
+const Color kDefaultTurnPanelBlue = RouteColors.primary;
 
 /// Panel showing the next turn instruction.
 ///
@@ -58,7 +59,7 @@ class NextTurnPanel extends StatelessWidget {
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(
-          maxWidth: 280,
+          maxWidth: 200,
         ),
         decoration: BoxDecoration(
           color: backgroundColor,
@@ -81,7 +82,26 @@ class NextTurnPanel extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Maneuver icon with optional traffic signal
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Distance - large and bold
+                        Text(
+                          displayDistance,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -93,7 +113,7 @@ class NextTurnPanel extends StatelessWidget {
                       if (hasTrafficSignal)
                         Positioned(
                           top: -4,
-                          right: -4,
+                          right: -0,
                           child: TrafficSignalIndicator(
                             hasTrafficSignal: true,
                             signalCount: step.trafficSignalCount,
@@ -103,25 +123,6 @@ class NextTurnPanel extends StatelessWidget {
                           ),
                         ),
                     ],
-                  ),
-                  const SizedBox(width: 10),
-                  // Distance (large) and instruction
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Distance - large and bold
-                        Text(
-                          displayDistance,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            height: 1.1,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),
@@ -134,7 +135,7 @@ class NextTurnPanel extends StatelessWidget {
                   step.name!,
                   style: TextStyle(
                     color: textColor.withAlpha(230),
-                    fontSize: 14,
+                    fontSize: 10,
                     height: 1.2,
                   ),
                   maxLines: 2,

@@ -96,3 +96,48 @@ class NetworkException extends QorviaMapsException {
   @override
   String toString() => 'NetworkException: $message';
 }
+
+/// Offline error - No network and no cached data available.
+class OfflineException extends QorviaMapsException {
+  /// Type of data that was requested (e.g., 'geocode', 'route').
+  final String? dataType;
+
+  /// Search parameters that were used.
+  final Map<String, dynamic>? searchParams;
+
+  const OfflineException({
+    required super.message,
+    super.requestId,
+    this.dataType,
+    this.searchParams,
+  }) : super(statusCode: null);
+
+  @override
+  String toString() =>
+      'OfflineException: $message${dataType != null ? ' (type: $dataType)' : ''}';
+}
+
+/// Stale data warning - Data from cache is outdated but still returned.
+///
+/// This is not thrown as an exception, but can be used to indicate
+/// that the returned data may be outdated.
+class StaleDataInfo {
+  /// Age of the cached data.
+  final Duration age;
+
+  /// When the data expires.
+  final DateTime expiresAt;
+
+  /// Whether the data has already expired.
+  final bool isExpired;
+
+  const StaleDataInfo({
+    required this.age,
+    required this.expiresAt,
+    required this.isExpired,
+  });
+
+  @override
+  String toString() =>
+      'StaleDataInfo(age: ${age.inMinutes}min, expired: $isExpired)';
+}

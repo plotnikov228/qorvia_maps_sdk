@@ -12,6 +12,8 @@ import '../markers/marker.dart' as sdk;
 import '../markers/cluster/marker_cluster.dart';
 import '../navigation/ui/widget_builders.dart';
 import '../navigation/ui/widget_data.dart';
+import '../offline/connectivity/connectivity_service.dart';
+import '../offline/connectivity/network_status.dart';
 import '../route_display/route_line.dart';
 import '../sdk_initializer.dart';
 import 'qorvia_map_controller.dart';
@@ -38,6 +40,9 @@ typedef OnMapTap = void Function(Coordinates coordinates);
 
 /// Callback for camera movement events.
 typedef OnCameraMove = void Function(sdk_camera.CameraPosition position);
+
+/// Callback for offline mode state changes.
+typedef OnOfflineModeChanged = void Function(bool isOffline);
 
 /// Main map widget for displaying and interacting with the map.
 ///
@@ -105,6 +110,15 @@ class QorviaMapView extends StatefulWidget {
   /// is initialized, the map will automatically use the tile URL from the SDK.
   final bool autoLoadStyle;
 
+  /// Whether to automatically refresh the style when connectivity changes.
+  ///
+  /// When true (default), the map will attempt to switch from offline to
+  /// online style when network becomes available, and vice versa.
+  final bool autoRefreshOnConnectivity;
+
+  /// Called when the map switches between online and offline mode.
+  final OnOfflineModeChanged? onOfflineModeChanged;
+
   /// Enable verbose logging for debugging.
   final bool enableLogging;
 
@@ -124,6 +138,8 @@ class QorviaMapView extends StatefulWidget {
     this.onCameraMove,
     this.onCameraIdle,
     this.autoLoadStyle = true,
+    this.autoRefreshOnConnectivity = true,
+    this.onOfflineModeChanged,
     this.enableLogging = false,
   });
 
@@ -146,6 +162,9 @@ class _QorviaMapViewState extends State<QorviaMapView> {
   String? _resolvedStyleUrl;
   bool _styleUrlLoading = false;
 
+  // Map ready state for crossfade animation
+  bool _mapReady = false;
+
   // Widget overlay state - using ValueNotifiers for efficient updates
   final ValueNotifier<double> _zoomNotifier = ValueNotifier<double>(14);
   final ValueNotifier<double> _bearingNotifier = ValueNotifier<double>(0);
@@ -166,11 +185,77 @@ class _QorviaMapViewState extends State<QorviaMapView> {
   UserLocationLayer? _userLocationLayer;
   StreamSubscription<LocationData>? _locationSubscription;
 
+  // Connectivity monitoring
+  StreamSubscription<NetworkStatus>? _connectivitySubscription;
+  bool _isOfflineMode = false;
+
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? QorviaMapController();
     _resolveStyleUrl();
+    _setupConnectivityListener();
+  }
+
+  void _setupConnectivityListener() {
+    if (!widget.autoRefreshOnConnectivity) return;
+    if (!QorviaMapsSDK.isInitialized || !QorviaMapsSDK.isOfflineEnabled) return;
+
+    _connectivitySubscription = ConnectivityService.instance.statusStream.listen(
+      _onConnectivityChanged,
+    );
+
+    // Check initial offline mode state
+    _isOfflineMode = QorviaMapsSDK.isUsingOfflineMode;
+  }
+
+  void _onConnectivityChanged(NetworkStatus status) {
+    _log('Connectivity changed', {'status': status.name, 'isConnected': status.isConnected});
+
+    // When connection is restored and we're using offline mode, try to switch to online
+    if (status.isConnected && _isOfflineMode) {
+      _log('Connection restored, attempting to switch to online style');
+      _refreshStyleUrl();
+    }
+    // When connection is lost, try to switch to offline mode (will use cached style if available)
+    else if (!status.isConnected && !_isOfflineMode) {
+      _log('Connection lost, attempting to switch to offline style');
+      _refreshStyleUrl();
+    }
+  }
+
+  Future<void> _refreshStyleUrl() async {
+    if (!QorviaMapsSDK.isInitialized) return;
+
+    try {
+      final newUrl = await QorviaMapsSDK.refreshTileUrl();
+      final newOfflineMode = QorviaMapsSDK.isUsingOfflineMode;
+
+      if (_resolvedStyleUrl != newUrl && mounted) {
+        _log('Style URL changed', {
+          'old': _resolvedStyleUrl,
+          'new': newUrl,
+          'isOffline': newOfflineMode,
+        });
+
+        setState(() {
+          _resolvedStyleUrl = newUrl;
+          _styleLoaded = false;
+          _mapReady = false;
+        });
+
+        // Notify about offline mode change
+        if (_isOfflineMode != newOfflineMode) {
+          _isOfflineMode = newOfflineMode;
+          widget.onOfflineModeChanged?.call(newOfflineMode);
+        }
+
+        // Reload style in existing map controller
+        await _maplibreController?.setStyle(newUrl);
+      }
+    } catch (e) {
+      _log('Failed to refresh style URL', {'error': e.toString()});
+    }
   }
 
   void _log(String message, [Map<String, dynamic>? data]) {
@@ -211,11 +296,17 @@ class _QorviaMapViewState extends State<QorviaMapView> {
 
       sdk.getTileUrl().then((url) {
         if (mounted) {
-          _log('SDK tile URL received', {'url': url});
+          final isOffline = QorviaMapsSDK.isUsingOfflineMode;
+          _log('SDK tile URL received', {'url': url, 'isOffline': isOffline});
           setState(() {
             _resolvedStyleUrl = url;
             _styleUrlLoading = false;
+            _isOfflineMode = isOffline;
           });
+          // Notify if starting in offline mode
+          if (isOffline) {
+            widget.onOfflineModeChanged?.call(true);
+          }
         }
       });
     } else {
@@ -413,11 +504,20 @@ class _QorviaMapViewState extends State<QorviaMapView> {
   }
 
   void _onStyleLoaded() {
+    _log('Style loaded', {'styleUrl': _resolvedStyleUrl});
     _styleLoaded = true;
     _styleTimeoutTimer?.cancel();
     _updateMarkers();
     _updateRouteLines();
     _initUserLocationLayer();
+
+    // Mark map as ready for crossfade animation
+    if (!_mapReady) {
+      _log('Map ready, triggering crossfade animation');
+      setState(() {
+        _mapReady = true;
+      });
+    }
   }
 
   /// Initializes custom user location layer if configured.
@@ -937,11 +1037,13 @@ class _QorviaMapViewState extends State<QorviaMapView> {
 
   @override
   Widget build(BuildContext context) {
-    // Wait for style URL to be resolved before showing map
+    final backgroundColor = widget.options.backgroundColor;
+    final animationDuration = widget.options.mapReadyAnimationDuration;
+
+    // Show only placeholder while loading style URL
     if (_styleUrlLoading || _resolvedStyleUrl == null) {
-      return Container(
-        color: const Color(0xFFF5F5F5),
-      );
+      _log('Showing placeholder (style loading)');
+      return Container(color: backgroundColor);
     }
 
     final widgetsConfig = widget.options.widgetsConfig;
@@ -998,13 +1100,13 @@ class _QorviaMapViewState extends State<QorviaMapView> {
           )
         : map;
 
-    // Return map directly if no overlays
+    // Build the map content (with or without overlays)
+    Widget mapContent;
     if (!hasOverlays) {
-      return mapWithListener;
-    }
-
-    // Wrap with Stack for overlays - using ValueListenableBuilder for efficient updates
-    return Stack(
+      mapContent = mapWithListener;
+    } else {
+      // Wrap with Stack for overlays - using ValueListenableBuilder for efficient updates
+      mapContent = Stack(
       children: [
         mapWithListener,
         // Zoom controls - rebuilds only when zoom changes
@@ -1029,11 +1131,34 @@ class _QorviaMapViewState extends State<QorviaMapView> {
         _buildUserLocationButton(),
       ],
     );
+    }
+
+    // Use AnimatedSwitcher for smooth crossfade from placeholder to map
+    if (animationDuration != Duration.zero) {
+      return Stack(
+        children: [
+          // Background placeholder (always visible, will be covered by map)
+          Container(color: backgroundColor),
+
+          // Map with animated opacity
+          AnimatedOpacity(
+            opacity: _mapReady ? 1.0 : 0.0,
+            duration: animationDuration,
+            curve: Curves.easeInOut,
+            child: mapContent,
+          ),
+        ],
+      );
+    }
+
+    // No animation - return map directly
+    return mapContent;
   }
 
   @override
   void dispose() {
     _styleTimeoutTimer?.cancel();
+    _connectivitySubscription?.cancel();
     _stopLocationUpdates();
     _userLocationLayer?.dispose();
     _userLocationLayer = null;

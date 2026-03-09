@@ -175,9 +175,14 @@ class RouteLineManager {
   /// to the animated cursor position.
   ///
   /// Called at animation frame rate (~60fps) to keep the route
-  /// visually attached to the cursor. Uses the last known segment
-  /// index from [updateTraveledPortion] for efficient updates.
-  Future<void> snapRouteStartToCursor(Coordinates cursorPosition) async {
+  /// visually attached to the cursor.
+  ///
+  /// [segmentIndex] - real-time segment index from RouteCursorEngine.
+  /// If provided, updates internal state for accurate route splitting.
+  Future<void> snapRouteStartToCursor(
+    Coordinates cursorPosition, {
+    int? segmentIndex,
+  }) async {
     if (_mapController == null || !_layerAdded || _polyline == null) return;
 
     // Throttle to ~30fps for route line (visual updates)
@@ -188,18 +193,33 @@ class RouteLineManager {
     }
     _lastSnapUpdate = now;
 
-    try {
-      final segmentIndex = _currentSegmentIndex;
+    // Use provided segment index (from RouteCursorEngine) or fall back to cached
+    final actualSegmentIndex = segmentIndex ?? _currentSegmentIndex;
 
+    // Update cached segment index if new value provided
+    if (segmentIndex != null && segmentIndex != _currentSegmentIndex) {
+      // Log significant segment jumps for debugging
+      final jump = (segmentIndex - _currentSegmentIndex).abs();
+      if (jump > 1) {
+        NavigationLogger.debug('RouteLineManager', 'Segment jump', {
+          'from': _currentSegmentIndex,
+          'to': segmentIndex,
+          'jump': jump,
+        });
+      }
+      _currentSegmentIndex = segmentIndex;
+    }
+
+    try {
       // Remaining route: from cursor to end
       final remaining = <Coordinates>[cursorPosition];
-      for (int i = segmentIndex + 1; i < _polyline!.length; i++) {
+      for (int i = actualSegmentIndex + 1; i < _polyline!.length; i++) {
         remaining.add(_polyline![i]);
       }
 
       // Traveled portion: from start to cursor
       final traveled = <Coordinates>[];
-      for (int i = 0; i <= segmentIndex && i < _polyline!.length; i++) {
+      for (int i = 0; i <= actualSegmentIndex && i < _polyline!.length; i++) {
         traveled.add(_polyline![i]);
       }
       traveled.add(cursorPosition);

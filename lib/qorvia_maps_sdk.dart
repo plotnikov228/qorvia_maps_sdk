@@ -114,3 +114,9 @@ export 'src/map/ui/user_location_button.dart';
 
 // Search
 export 'src/search/search.dart';
+
+// Offline
+export 'src/offline/offline.dart';
+
+// Native helpers
+export 'src/native/maplibre_native_helper.dart';

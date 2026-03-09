@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../features/home/home_screen.dart';
+import '../features/settings/settings_service.dart';
 import 'theme/app_theme.dart';
 
 /// Main application widget with Material 3 Blue theme.
 class QorviaMapsExampleApp extends StatelessWidget {
-  const QorviaMapsExampleApp({super.key});
+  final SettingsService settingsService;
+
+  const QorviaMapsExampleApp({
+    super.key,
+    required this.settingsService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +19,7 @@ class QorviaMapsExampleApp extends StatelessWidget {
       title: 'Qorvia Map',
       theme: AppTheme.light,
       debugShowCheckedModeBanner: false,
-      home: const HomeScreen(),
+      home: HomeScreen(settingsService: settingsService),
     );
   }
 }

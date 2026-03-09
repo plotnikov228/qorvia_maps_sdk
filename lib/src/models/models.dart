@@ -22,6 +22,9 @@ export 'usage/usage_response.dart';
 // Tile
 export 'tile/tile_url_response.dart';
 
+// Tile Download
+export 'tile_download/tile_download.dart';
+
 // Smart Search
 export 'smart_search/opening_hours_entry.dart';
 export 'smart_search/smart_search_result.dart';

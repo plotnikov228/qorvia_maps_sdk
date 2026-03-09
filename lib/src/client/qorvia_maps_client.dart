@@ -13,6 +13,7 @@ import '../services/reverse_service.dart';
 import '../services/quota_service.dart';
 import '../services/tile_service.dart';
 import '../services/smart_search_service.dart';
+import '../services/tile_download_service.dart';
 import '../models/tile/tile_url_response.dart';
 import '../models/smart_search/smart_search_response.dart';
 import '../models/smart_search/smart_search_result.dart';
@@ -49,6 +50,7 @@ class QorviaMapsClient {
   QuotaService? _quotaService;
   TileService? _tileService;
   SmartSearchService? _smartSearchService;
+  TileDownloadService? _tileDownloadService;
 
   /// Creates a new QorviaMapsClient.
   ///
@@ -86,6 +88,12 @@ class QorviaMapsClient {
   TileService get _tile => _tileService ??= TileService(_httpClient);
   SmartSearchService get _smartSearch =>
       _smartSearchService ??= SmartSearchService(_httpClient);
+
+  /// Service for downloading offline map tiles.
+  ///
+  /// Provides access to server-side tile extraction and download functionality.
+  TileDownloadService get tileDownload =>
+      _tileDownloadService ??= TileDownloadService(_httpClient);
 
   // ==================== ROUTING ====================
 

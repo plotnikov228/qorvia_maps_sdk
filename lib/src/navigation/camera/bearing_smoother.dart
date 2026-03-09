@@ -19,13 +19,22 @@ class BearingSmoother {
   final double lowSpeedThreshold;
   final double highSpeedThreshold;
 
+  /// Alpha boost multiplier for large bearing deltas (turns).
+  /// Applied when delta > 30°. Higher = faster response to turns.
+  final double turnAlphaBoost;
+
+  /// Threshold (degrees) above which turn boost is applied.
+  final double turnBoostThreshold;
+
   BearingSmoother({
-    this.alphaMin = 0.08,
-    this.alphaMax = 0.15,
-    this.maxVelocityLowSpeed = 30.0,
-    this.maxVelocityHighSpeed = 60.0,
+    this.alphaMin = 0.12, // Increased from 0.08 for faster response
+    this.alphaMax = 0.25, // Increased from 0.15 for faster response
+    this.maxVelocityLowSpeed = 45.0, // Increased from 30 for faster turns
+    this.maxVelocityHighSpeed = 90.0, // Increased from 60 for faster turns
     this.lowSpeedThreshold = 5.0,
     this.highSpeedThreshold = 10.0,
+    this.turnAlphaBoost = 2.5, // New: boost factor for turns
+    this.turnBoostThreshold = 30.0, // New: threshold for turn detection
   });
 
   /// Current smoothed bearing (null until first value fed).
@@ -54,15 +63,30 @@ class BearingSmoother {
     final speedFactor = ((speedMs - lowSpeedThreshold) /
             (highSpeedThreshold - lowSpeedThreshold))
         .clamp(0.0, 1.0);
-    final alpha = alphaMin + (alphaMax - alphaMin) * speedFactor;
+    var alpha = alphaMin + (alphaMax - alphaMin) * speedFactor;
+
+    // Adaptive alpha boost for turns — when bearing delta is large,
+    // increase alpha significantly to reduce lag during turns.
+    final absDelta = delta.abs();
+    if (absDelta > turnBoostThreshold) {
+      // Progressively boost alpha as turn gets sharper
+      final turnFactor = ((absDelta - turnBoostThreshold) / 60.0).clamp(0.0, 1.0);
+      alpha = (alpha * (1.0 + turnFactor * (turnAlphaBoost - 1.0))).clamp(0.0, 0.6);
+
+      NavigationLogger.debug('BearingSmoother', 'Turn boost applied', {
+        'absDelta': absDelta,
+        'turnFactor': turnFactor,
+        'boostedAlpha': alpha,
+      });
+    }
 
     // Velocity limiting — boost for large bearing deltas so real turns
     // track faster while GPS noise (< 20°) stays unchanged.
     var maxVelocity = maxVelocityLowSpeed +
         (maxVelocityHighSpeed - maxVelocityLowSpeed) * speedFactor;
-    final absDelta = delta.abs();
     if (absDelta > 20.0) {
-      maxVelocity *= 1.0 + (absDelta / 90.0);
+      // More aggressive boost: 1.5x at 45°, 2.5x at 90°, 3.5x at 180°
+      maxVelocity *= 1.0 + (absDelta / 60.0);
     }
     final maxDelta = maxVelocity * dtSec;
 

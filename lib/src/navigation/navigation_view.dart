@@ -319,10 +319,14 @@ class _NavigationViewState extends State<NavigationView>
   }
 
   void _onArrival() {
-    NavigationLogger.info('NavigationView', 'Arrival — stopping navigation');
+    NavigationLogger.info('NavigationView', 'Arrival detected — stopping navigation', {
+      'hasOnArrivalCallback': widget.onArrival != null,
+      'hasOnNavigationEndCallback': widget.onNavigationEnd != null,
+    });
     _positionAnimator.stop();
     _navController.stopNavigation();
     widget.onArrival?.call();
+    NavigationLogger.info('NavigationView', 'Calling onNavigationEnd with arrived reason');
     widget.onNavigationEnd?.call(NavigationEndReason.arrived);
   }
 
@@ -404,7 +408,12 @@ class _NavigationViewState extends State<NavigationView>
   // Animation frame (60fps)
   // ---------------------------------------------------------------------------
 
-  void _onAnimationFrame(Coordinates position, double bearing, double speed) {
+  void _onAnimationFrame(
+    Coordinates position,
+    double bearing,
+    double speed,
+    int segmentIndex,
+  ) {
     if (!_mapReady) return;
 
     // Track last position for recenter animation
@@ -423,8 +432,12 @@ class _NavigationViewState extends State<NavigationView>
     }
 
     // Always update arrow and route line even during recenter
+    // Pass segment index for real-time route line snapping
     _userArrowLayer.update(position, bearing);
-    _routeLineManager.snapRouteStartToCursor(position);
+    _routeLineManager.snapRouteStartToCursor(
+      position,
+      segmentIndex: segmentIndex,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -470,6 +483,7 @@ class _NavigationViewState extends State<NavigationView>
   }
 
   void _onClose() {
+    NavigationLogger.info('NavigationView', 'Close button tapped - stopping navigation');
     _positionAnimator.stop();
     _navController.stopNavigation();
     widget.onNavigationEnd?.call(NavigationEndReason.cancelled);
@@ -606,18 +620,19 @@ class _NavigationViewState extends State<NavigationView>
     final data = EtaWidgetData.fromState(_navState!);
     final widgetConfig = config.etaWidgetConfig;
 
-    return SafeArea(
-      child: Align(
-        alignment: widgetConfig.alignment,
-        child: Padding(
-          padding: widgetConfig.padding,
-          child: config.etaWidgetBuilder != null
-              ? config.etaWidgetBuilder!(data, _onClose)
-              : CompactEtaPanel(
-                  state: _navState!,
-                  onTap: _onClose,
-                ),
-        ),
+    // Use Positioned for full-width bottom panel to ensure proper hit testing
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Padding(
+        padding: widgetConfig.padding,
+        child: config.etaWidgetBuilder != null
+            ? config.etaWidgetBuilder!(data, _onClose)
+            : CompactEtaPanel(
+                state: _navState!,
+                onTap: _onClose,
+              ),
       ),
     );
   }

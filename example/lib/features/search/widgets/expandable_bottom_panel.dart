@@ -24,30 +24,47 @@ class PanelSnapPoint {
 /// - If panel is not at min and scroll is at top and dragging down → shrink panel
 /// - If scroll is not at top and dragging down → scroll content
 class ExpandableBottomPanel extends StatefulWidget {
-  final Widget child;
+  /// Child widget builder that receives isCollapsed state.
+  final Widget Function(bool isCollapsed, VoidCallback expandPanel)? childBuilder;
+
+  /// Static child widget (used if childBuilder is null).
+  final Widget? child;
+
   final double minHeight;
   final double initialHeight;
   final double maxHeight;
   final ValueChanged<double>? onHeightChanged;
   final ValueChanged<PanelSnapPoint>? onSnapChanged;
+
+  /// Callback when collapsed state changes.
+  final ValueChanged<bool>? onCollapsedChanged;
+
   final List<double>? snapPoints;
   final Duration snapAnimationDuration;
   final bool enableGlassmorphism;
   final double borderRadius;
 
+  /// Height threshold to consider panel as collapsed.
+  /// Defaults to minHeight + 50 pixels.
+  final double? collapsedThreshold;
+
   const ExpandableBottomPanel({
     super.key,
-    required this.child,
+    this.child,
+    this.childBuilder,
     required this.minHeight,
     required this.initialHeight,
     required this.maxHeight,
     this.onHeightChanged,
     this.onSnapChanged,
+    this.onCollapsedChanged,
     this.snapPoints,
     this.snapAnimationDuration = const Duration(milliseconds: 300),
     this.enableGlassmorphism = true,
     this.borderRadius = 32.0,
-  }) : assert(minHeight <= initialHeight && initialHeight <= maxHeight);
+    this.collapsedThreshold,
+  }) : assert(minHeight <= initialHeight && initialHeight <= maxHeight),
+       assert(child != null || childBuilder != null, 'Either child or childBuilder must be provided');
 
   @override
   State<ExpandableBottomPanel> createState() => _ExpandableBottomPanelState();
@@ -58,6 +75,7 @@ class _ExpandableBottomPanelState extends State<ExpandableBottomPanel>
   late double _currentHeight;
   late AnimationController _animationController;
   Animation<double>? _heightAnimation;
+  bool _isCollapsed = true;
 
   final ScrollController _scrollController = ScrollController();
   bool _isDragging = false;
@@ -67,6 +85,10 @@ class _ExpandableBottomPanelState extends State<ExpandableBottomPanel>
   bool get _isAtMaxHeight => (_currentHeight - widget.maxHeight).abs() < 1.0;
   bool get _isAtMinHeight => (_currentHeight - widget.minHeight).abs() < 1.0;
   bool get _isScrollAtTop => _scrollController.offset <= 0;
+
+  /// Threshold below which the panel is considered collapsed.
+  double get _collapsedThreshold =>
+      widget.collapsedThreshold ?? (widget.minHeight + 50);
 
   List<PanelSnapPoint> get _allSnapPoints {
     final points = <PanelSnapPoint>[
@@ -100,6 +122,7 @@ class _ExpandableBottomPanelState extends State<ExpandableBottomPanel>
   void initState() {
     super.initState();
     _currentHeight = widget.initialHeight;
+    _isCollapsed = _currentHeight <= _collapsedThreshold;
 
     _animationController = AnimationController(
       vsync: this,
@@ -108,15 +131,18 @@ class _ExpandableBottomPanelState extends State<ExpandableBottomPanel>
 
     _animationController.addListener(_onAnimationTick);
 
-    // Notify initial height
+    // Notify initial height and collapsed state
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onHeightChanged?.call(_currentHeight);
+      widget.onCollapsedChanged?.call(_isCollapsed);
     });
 
     _log('Initialized', {
       'minHeight': widget.minHeight,
       'initialHeight': widget.initialHeight,
       'maxHeight': widget.maxHeight,
+      'isCollapsed': _isCollapsed,
+      'collapsedThreshold': _collapsedThreshold,
     });
   }
 
@@ -134,7 +160,35 @@ class _ExpandableBottomPanelState extends State<ExpandableBottomPanel>
         _currentHeight = _heightAnimation!.value;
       });
       widget.onHeightChanged?.call(_currentHeight);
+      _updateCollapsedState();
     }
+  }
+
+  /// Updates the collapsed state based on current height.
+  void _updateCollapsedState() {
+    final newCollapsed = _currentHeight <= _collapsedThreshold;
+    if (newCollapsed != _isCollapsed) {
+      _log('Collapsed state changed', {
+        'wasCollapsed': _isCollapsed,
+        'isCollapsed': newCollapsed,
+        'currentHeight': _currentHeight,
+        'threshold': _collapsedThreshold,
+      });
+      setState(() {
+        _isCollapsed = newCollapsed;
+      });
+      widget.onCollapsedChanged?.call(newCollapsed);
+    }
+  }
+
+  /// Expands the panel to initial height.
+  void _expandPanel() {
+    _log('Expand panel requested');
+    final targetPoint = _allSnapPoints.firstWhere(
+      (p) => p.name == 'initial',
+      orElse: () => _allSnapPoints.last,
+    );
+    _animateToHeight(targetPoint);
   }
 
   void _onPointerDown(PointerDownEvent event) {
@@ -162,6 +216,7 @@ class _ExpandableBottomPanelState extends State<ExpandableBottomPanel>
         if (newHeight != _currentHeight) {
           setState(() => _currentHeight = newHeight);
           widget.onHeightChanged?.call(_currentHeight);
+          _updateCollapsedState();
         }
       }
       // If at max, let scroll handle it naturally
@@ -176,6 +231,7 @@ class _ExpandableBottomPanelState extends State<ExpandableBottomPanel>
         if (newHeight != _currentHeight) {
           setState(() => _currentHeight = newHeight);
           widget.onHeightChanged?.call(_currentHeight);
+          _updateCollapsedState();
         }
       }
       // If not at scroll top, let scroll handle it naturally
@@ -248,6 +304,11 @@ class _ExpandableBottomPanelState extends State<ExpandableBottomPanel>
 
   @override
   Widget build(BuildContext context) {
+    // Build child using builder or static child
+    final childWidget = widget.childBuilder != null
+        ? widget.childBuilder!(_isCollapsed, _expandPanel)
+        : widget.child!;
+
     final content = Column(
       children: [
         // Drag handle
@@ -272,7 +333,7 @@ class _ExpandableBottomPanelState extends State<ExpandableBottomPanel>
             physics: _isAtMaxHeight
                 ? const ClampingScrollPhysics()
                 : const NeverScrollableScrollPhysics(),
-            child: widget.child,
+            child: childWidget,
           ),
         ),
       ],

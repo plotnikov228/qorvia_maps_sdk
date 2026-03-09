@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart' hide SearchPanel;
 
+import '../../app/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/services/app_location_service.dart';
 import '../map/map_screen.dart';
@@ -14,12 +15,19 @@ import '../search/models/selected_point.dart';
 import '../search/models/travel_mode.dart';
 import '../search/search_panel.dart';
 import '../search/widgets/expandable_bottom_panel.dart';
+import '../settings/settings_screen.dart';
+import '../settings/settings_service.dart';
 import 'widgets/app_bar_logo.dart';
 import 'widgets/map_pick_hint.dart';
 
 /// Main home screen integrating map, search, and navigation.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final SettingsService settingsService;
+
+  const HomeScreen({
+    super.key,
+    required this.settingsService,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -104,19 +112,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _setFromCurrentLocation(Coordinates coordinates) async {
-    if (_fromPoint != null) return;
-
-    String label = '${coordinates.lat.toStringAsFixed(5)}, '
+    // Show loading state immediately with coordinates as placeholder
+    final coordsLabel = '${coordinates.lat.toStringAsFixed(5)}, '
         '${coordinates.lon.toStringAsFixed(5)}';
 
+    setState(() {
+      _fromPoint = SelectedPoint(
+        coordinates: coordinates,
+        label: coordsLabel,
+        isLoading: true,
+      );
+    });
+
+    // Fetch address in background
+    String label = coordsLabel;
     try {
       final reverse = await QorviaMapsSDK.instance.client.reverse(
         coordinates: coordinates,
         language: 'ru',
       );
       label = reverse.displayName;
-    } catch (_) {
-      // Fallback to coords
+      _log('Reverse geocode success', {'label': label});
+    } catch (e) {
+      _log('Reverse geocode failed', {'error': e.toString()});
+      // Keep coordinates as fallback
     }
 
     if (!mounted) return;
@@ -598,13 +617,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   right: 16,
                   child: Row(
                     children: [
-                      const AppBarLogo(),
-                      const Spacer(),
-                      if (_fromPoint != null && _toPoint != null)
+                      _buildSettingsButton(),
+                      Spacer(),
+                      if (_fromPoint != null && _toPoint != null) ...[
+                        const SizedBox(width: 8),
                         NavigationButton(
                           onTap: _enterNavigationMode,
                           isLoading: _isRouting,
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -631,12 +652,15 @@ class _HomeScreenState extends State<HomeScreen> {
           // Bottom panel (fixed at bottom, expandable)
           ExpandableBottomPanel(
             minHeight: minPanelHeight,
-            initialHeight: initialPanelHeight,
+            initialHeight: minPanelHeight, // Start collapsed
             maxHeight: maxPanelHeight,
             snapAnimationDuration: AppConstants.panelSnapDuration,
             onHeightChanged: _onPanelHeightChanged,
             onSnapChanged: _onPanelSnapChanged,
-            child: _buildSearchPanelContent(),
+            childBuilder: (isCollapsed, expandPanel) => _buildSearchPanelContent(
+              isCollapsed: isCollapsed,
+              onExpandRequest: expandPanel,
+            ),
           ),
         ],
       ),
@@ -656,7 +680,45 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSearchPanelContent() {
+  Widget _buildSettingsButton() {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      elevation: 2,
+      shadowColor: AppColors.shadowMedium,
+      child: InkWell(
+        onTap: _openSettings,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          child: Icon(
+            Icons.settings_rounded,
+            size: 22,
+            color: AppColors.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openSettings() {
+    _log('Opening settings');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SettingsScreen(
+          settingsService: widget.settingsService,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchPanelContent({
+    required bool isCollapsed,
+    required VoidCallback onExpandRequest,
+  }) {
+    _log('Building search panel content', {'isCollapsed': isCollapsed});
+
     // SearchPanel handles its own scrolling and padding.
     // Disable glassmorphism since ExpandableBottomPanel provides it.
     return SearchPanel(
@@ -667,6 +729,8 @@ class _HomeScreenState extends State<HomeScreen> {
       travelMode: _travelMode,
       isLocating: _locationService.isLocating,
       enableGlassmorphism: false,
+      isCollapsed: isCollapsed,
+      onExpandRequest: onExpandRequest,
       onFromChanged: _onFromChanged,
       onToChanged: _onToChanged,
       onWaypointsChanged: _onWaypointsChanged,

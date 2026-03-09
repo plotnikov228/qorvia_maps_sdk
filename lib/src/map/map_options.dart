@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import '../models/coordinates.dart';
 import 'camera/camera_position.dart';
 import 'ui/widget_builders.dart';
@@ -78,6 +80,19 @@ class MapOptions {
   /// Whether double-tap to zoom is enabled.
   final bool doubleTapZoomEnabled;
 
+  /// Background color shown while the map is loading.
+  ///
+  /// This color is displayed as a placeholder until the map style is loaded,
+  /// preventing the "flicker" effect during initialization.
+  ///
+  /// Defaults to a light gray (#F5F5F5) which matches typical map backgrounds.
+  final Color backgroundColor;
+
+  /// Duration of the crossfade animation when the map becomes ready.
+  ///
+  /// Set to [Duration.zero] to disable the animation.
+  final Duration mapReadyAnimationDuration;
+
   /// Configuration for customizing map overlay widgets.
   ///
   /// Allows replacing default widgets with custom implementations,
@@ -120,6 +135,8 @@ class MapOptions {
     this.zoomGesturesEnabled = true,
     this.scrollGesturesEnabled = true,
     this.doubleTapZoomEnabled = true,
+    this.backgroundColor = const Color(0xFFF5F5F5),
+    this.mapReadyAnimationDuration = const Duration(milliseconds: 300),
     this.widgetsConfig = const MapWidgetsConfig(),
   });
 
@@ -151,6 +168,8 @@ class MapOptions {
     bool? zoomGesturesEnabled,
     bool? scrollGesturesEnabled,
     bool? doubleTapZoomEnabled,
+    Color? backgroundColor,
+    Duration? mapReadyAnimationDuration,
     MapWidgetsConfig? widgetsConfig,
   }) {
     return MapOptions(
@@ -173,6 +192,8 @@ class MapOptions {
       zoomGesturesEnabled: zoomGesturesEnabled ?? this.zoomGesturesEnabled,
       scrollGesturesEnabled: scrollGesturesEnabled ?? this.scrollGesturesEnabled,
       doubleTapZoomEnabled: doubleTapZoomEnabled ?? this.doubleTapZoomEnabled,
+      backgroundColor: backgroundColor ?? this.backgroundColor,
+      mapReadyAnimationDuration: mapReadyAnimationDuration ?? this.mapReadyAnimationDuration,
       widgetsConfig: widgetsConfig ?? this.widgetsConfig,
     );
   }
@@ -186,15 +207,6 @@ abstract class MapStyles {
   /// OpenFreeMap Liberty style (free, no key).
   static const String openFreeMapLiberty =
       'https://tiles.openfreemap.org/styles/liberty';
-
-
-  /// Custom map style - light (locally hosted).
-  static const String ourMaps =
-      'http://89.223.127.137:8081/styles/basic/style.json';
-
-  /// Custom map style - dark (locally hosted).
-  static const String ourMapsDark =
-      'http://89.223.127.137:8081/styles/dark/style.json';
 
   /// CARTO Dark Matter style (free, no key) - dark theme fallback.
   static const String cartoDarkMatter =

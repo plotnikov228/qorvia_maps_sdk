@@ -271,15 +271,16 @@ class RouteCursorEngine {
     _distanceAlongRoute = _distanceAlongRoute.clamp(0.0, _totalDistance);
 
     // --- Micro-correction toward GPS ---
-    // When cursor is close to GPS projection (< 2m), blend slightly
-    // to reduce accumulated drift.
+    // When cursor is behind GPS projection, blend to catch up.
+    // Increased catch-up rate to reduce cursor lag after turns.
     if (_isOnRoute && !_isDecelerating) {
-      final gap = (_gpsDistanceAlongRoute - _distanceAlongRoute).abs();
-      if (gap < 2.0 && gap > 0.05) {
-        final correction = gap * 0.1 * dtSec * 60; // ~10% per frame at 60fps
-        if (_gpsDistanceAlongRoute > _distanceAlongRoute) {
-          _distanceAlongRoute += correction.clamp(0.0, gap);
-        }
+      final gap = _gpsDistanceAlongRoute - _distanceAlongRoute;
+      if (gap > 0.05 && gap < 10.0) {
+        // Progressive catch-up: faster when gap is larger
+        // ~15% per frame for small gaps, ~30% for larger gaps
+        final catchUpRate = 0.15 + (gap / 10.0) * 0.15;
+        final correction = gap * catchUpRate * dtSec * 60;
+        _distanceAlongRoute += correction.clamp(0.0, gap);
       }
     }
 
@@ -344,9 +345,10 @@ class RouteCursorEngine {
 
   /// Computes velocity reduction factor for an upcoming turn.
   ///
-  /// Returns 1.0 (no reduction) to 0.3 (maximum reduction for sharp turns).
+  /// Returns 1.0 (no reduction) to 0.5 (maximum reduction for sharp turns).
+  /// The minimum factor is increased to prevent excessive cursor lag during turns.
   double _turnVelocityFactor(_UpcomingTurn turn) {
-    const slowdownDistance = 30.0; // meters before turn to start slowing
+    const slowdownDistance = 25.0; // meters before turn to start slowing (reduced from 30)
     if (turn.distance > slowdownDistance) return 1.0;
 
     // How close we are (0 = at turn, 1 = at slowdown start)
@@ -356,10 +358,20 @@ class RouteCursorEngine {
     final sharpness = (turn.angle.abs() / 180.0).clamp(0.0, 1.0);
 
     // Minimum velocity factor based on sharpness
-    final minFactor = 0.3 + 0.4 * (1.0 - sharpness); // 0.3 for U-turn, 0.7 for mild
+    // Increased from 0.3-0.7 range to 0.5-0.8 range to reduce cursor lag
+    final minFactor = 0.5 + 0.3 * (1.0 - sharpness); // 0.5 for U-turn, 0.8 for mild
 
     // Interpolate: full speed at slowdown distance, minimum at turn
-    return minFactor + (1.0 - minFactor) * proximity;
+    final factor = minFactor + (1.0 - minFactor) * proximity;
+
+    NavigationLogger.debug('RouteCursorEngine', 'Turn velocity factor', {
+      'angle': turn.angle.toStringAsFixed(0),
+      'distance': turn.distance.toStringAsFixed(1),
+      'sharpness': sharpness.toStringAsFixed(2),
+      'factor': factor.toStringAsFixed(2),
+    });
+
+    return factor;
   }
 
   // --- Private: turn detection ---

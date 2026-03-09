@@ -1,3 +1,14 @@
+## 0.2.7
+
+- Fixed navigation mode for better performance
+- Add map offline mode
+
+## 0.2.6
+
+- Fixed Smart Search to use mobile API endpoint
+- Updated `SmartSearchResponse` model: added `provider`, `queryType` fields
+- Updated `SmartSearchResult` model: added `photoUrl`, `placeId` fields
+
 ## 0.2.5
 
 - Added Smart Search API (`smartSearch()`, `smartSearchFirst()`) - AI-powered natural language search

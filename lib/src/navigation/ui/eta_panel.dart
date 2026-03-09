@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../navigation_logger.dart';
 import '../navigation_state.dart';
 
 /// Panel showing ETA, remaining distance and time.
@@ -169,7 +170,10 @@ class _ExitButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          NavigationLogger.info('EtaPanel', 'Exit button tapped');
+          onTap?.call();
+        },
         borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

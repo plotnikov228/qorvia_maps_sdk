@@ -340,6 +340,30 @@ class QorviaMapController extends ChangeNotifier {
     );
   }
 
+  /// Converts screen position to geographic coordinates.
+  /// The [screenPosition] should be in physical pixels (as returned by gesture handlers).
+  Future<LatLng?> toLatLng(Offset screenPosition) async {
+    final controller = _mapController;
+    if (controller == null) return null;
+
+    try {
+      return await controller.toLatLng(
+        math.Point(screenPosition.dx, screenPosition.dy),
+      );
+    } catch (e) {
+      _log(_LogLevel.debug, 'toLatLng error', e);
+      return null;
+    }
+  }
+
+  /// Converts screen position to Coordinates.
+  /// The [screenPosition] should be in physical pixels.
+  Future<Coordinates?> toCoordinates(Offset screenPosition) async {
+    final latLng = await toLatLng(screenPosition);
+    if (latLng == null) return null;
+    return Coordinates(lat: latLng.latitude, lon: latLng.longitude);
+  }
+
 
   // ==================== MARKERS ====================
 

@@ -226,6 +226,52 @@ class NavigationController extends ChangeNotifier {
     _voiceGuidance?.onNewRoute();
   }
 
+  /// Manually triggers arrival - speaks arrival message and ends navigation.
+  /// Use this when you want to force arrival regardless of distance conditions.
+  void triggerArrival() {
+    if (!_isNavigating || _state == null) {
+      NavigationLogger.warn('NavigationController', 'triggerArrival called but not navigating');
+      return;
+    }
+
+    NavigationLogger.info('NavigationController', 'Manual arrival triggered');
+    _state = _state!.copyWith(hasArrived: true);
+    notifyListeners();
+    _handleArrival();
+  }
+
+  /// Handles arrival: stops current speech, speaks arrival message, waits for completion, then triggers callback.
+  Future<void> _handleArrival() async {
+    NavigationLogger.info('NavigationController', 'Handling arrival...', {
+      'hasVoiceGuidance': _voiceGuidance != null,
+      'hasOnArrivalCallback': onArrival != null,
+    });
+
+    try {
+      // Stop any current speech and clear queue
+      if (_voiceGuidance != null) {
+        await _voiceGuidance!.stopAndClear();
+        NavigationLogger.info('NavigationController', 'Voice queue cleared');
+
+        // Speak arrival and wait for it to complete
+        NavigationLogger.info('NavigationController', 'Speaking arrival message...');
+        await _voiceGuidance!.speakArrival();
+        NavigationLogger.info('NavigationController', 'Arrival message completed');
+      }
+    } catch (e, stack) {
+      NavigationLogger.error('NavigationController', 'Error in _handleArrival voice', e, stack);
+    }
+
+    // Always trigger callback, even if voice failed
+    NavigationLogger.info('NavigationController', 'Triggering onArrival callback');
+    if (onArrival != null) {
+      onArrival!.call();
+      NavigationLogger.info('NavigationController', 'onArrival callback executed');
+    } else {
+      NavigationLogger.warn('NavigationController', 'onArrival callback is null!');
+    }
+  }
+
   /// Updates the current route without fully restarting navigation.
   Future<void> updateRoute(RouteResponse newRoute) async {
     if (!_isNavigating || _state == null) {
@@ -440,27 +486,42 @@ class NavigationController extends ChangeNotifier {
       nextWaypointDistance = legDistanceRemaining.clamp(0, double.infinity);
     }
 
-    // Arrival check
+    // Arrival check - last step OR very close to destination
     final totalSteps = steps.length;
     final isLastStep = rawStepIndex >= totalSteps - 1;
-    final destination = polyline.last;
-    final directDistanceToDestination =
-        location.coordinates.distanceTo(destination);
-    final meetsDistanceThreshold =
-        distanceRemaining < options.arrivalThreshold ||
-            directDistanceToDestination < options.arrivalThreshold;
-    final isVeryCloseToDestination =
-        directDistanceToDestination < options.arrivalThreshold * 0.5;
-    final hasArrived =
-        (isLastStep && meetsDistanceThreshold) || isVeryCloseToDestination;
+    // Fallback: if within 30 meters of destination, consider arrived
+    // This handles cases where step index doesn't advance properly
+    final isVeryCloseToDestination = distanceRemaining < 30.0;
+    final hasArrived = isLastStep || isVeryCloseToDestination;
+
+    // Log arrival conditions
+    if (isLastStep || isVeryCloseToDestination) {
+      NavigationLogger.info('NavigationController', 'Near arrival', {
+        'distanceRemaining': distanceRemaining.toStringAsFixed(1),
+        'stepIndex': rawStepIndex,
+        'totalSteps': totalSteps,
+        'isLastStep': isLastStep,
+        'isVeryCloseToDestination': isVeryCloseToDestination,
+      });
+    }
 
     if (hasArrived && !_state!.hasArrived) {
-      NavigationLogger.info('NavigationController', 'Arrived at destination', {
-        'distanceRemaining': distanceRemaining,
-        'directDistance': directDistanceToDestination,
+      NavigationLogger.info('NavigationController', '=== ARRIVAL DETECTED ===', {
+        'stepIndex': rawStepIndex,
+        'totalSteps': totalSteps,
+        'isLastStep': isLastStep,
       });
-      onArrival?.call();
-      _voiceGuidance?.speakArrival();
+
+      // Mark as arrived immediately to prevent duplicate triggers
+      _state = _state!.copyWith(hasArrived: true);
+      notifyListeners();
+      _notifyStateChanged();
+
+      // Speak arrival and trigger callback
+      NavigationLogger.info('NavigationController', 'Calling _handleArrival()');
+      _handleArrival();
+
+      return;
     }
 
     // Get step details
@@ -474,7 +535,9 @@ class NavigationController extends ChangeNotifier {
     if (stepJustChanged) {
       _voiceGuidance?.updateCurrentStepIndex(confirmedStepIndex);
     }
-    if (stepJustChanged && currentStep != null) {
+
+    // Skip voice instructions for last step - arrival message will be spoken instead
+    if (stepJustChanged && currentStep != null && !isLastStep) {
       NavigationLogger.info('NavigationController',
           'Step ${_state!.currentStepIndex} -> $confirmedStepIndex: ${currentStep.instruction}');
       onStepChanged?.call(currentStep);
@@ -497,7 +560,8 @@ class NavigationController extends ChangeNotifier {
     }
 
     // Proactive voice: UPCOMING (~250m) and SHORT (~30m)
-    if (!stepJustChanged && currentStep != null && _voiceGuidance != null) {
+    // Skip for last step - arrival message will be spoken instead
+    if (!stepJustChanged && currentStep != null && _voiceGuidance != null && !isLastStep) {
       final upcomingThreshold = options.upcomingInstructionThreshold;
       final shortThreshold =
           options.voiceGuidanceOptions.shortInstructionThreshold;

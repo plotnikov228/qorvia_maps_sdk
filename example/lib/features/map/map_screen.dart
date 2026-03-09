@@ -161,6 +161,6 @@ class _MapScreenState extends State<MapScreen> {
       onMapTap: _onMapTap,
       onMapCreated: _onMapCreated,
       enableLogging: true, // Latency logging
-    );
+    ).withOfflineIndicator();
   }
 }

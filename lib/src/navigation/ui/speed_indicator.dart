@@ -70,10 +70,10 @@ class SpeedIndicator extends StatelessWidget {
   /// Builds the current speed display box.
   Widget _buildSpeedBox(bool isOverLimit) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
+        shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(40),
@@ -84,6 +84,7 @@ class SpeedIndicator extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             '${speedKmh.round()}',
@@ -94,14 +95,7 @@ class SpeedIndicator extends StatelessWidget {
               height: 1.1,
             ),
           ),
-          Text(
-            'км/ч',
-            style: TextStyle(
-              fontSize: 10,
-              color: (isOverLimit ? overLimitColor : textColor).withAlpha(180),
-              height: 1.0,
-            ),
-          ),
+
         ],
       ),
     );

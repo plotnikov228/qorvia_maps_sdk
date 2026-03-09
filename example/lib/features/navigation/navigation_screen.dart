@@ -70,14 +70,21 @@ class _NavigationScreenState extends State<NavigationScreen> {
   void _onStateChanged(NavigationState state) {
     _log('Navigation state changed', {
       'currentStep': state.currentStepIndex,
+      'totalSteps': state.route.steps?.length ?? 0,
       'remainingDistance': state.distanceRemaining,
+      'progress': state.progress,
+      'hasArrived': state.hasArrived,
     });
     widget.onStateChanged?.call(state);
   }
 
   void _onNavigationEnd(NavigationEndReason reason) {
-    _log('Navigation ended', {'reason': reason.name});
+    _log('Navigation ended callback received', {
+      'reason': reason.name,
+      'hasParentCallback': widget.onNavigationEnd != null,
+    });
     widget.onNavigationEnd?.call(reason);
+    _log('Parent onNavigationEnd callback invoked');
   }
 
   Future<RouteResponse> _onReroute(Coordinates from, Coordinates to) async {
@@ -113,7 +120,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       route: widget.route,
       initialLocation: widget.initialLocation,
       onStateChanged: _onStateChanged,
-      options: const NavigationOptions(
+      options: NavigationOptions(
         logLevel: NavigationLogLevel.debug,
         useNativeTracking: false,
         cursorColor: RouteColors.primary,

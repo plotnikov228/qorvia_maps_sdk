@@ -63,6 +63,37 @@ class QorviaMapsHttpClient {
     return response.data!;
   }
 
+  /// Downloads a file from the given URL to the specified path.
+  ///
+  /// [url] - The URL to download from (can be relative or absolute).
+  /// [savePath] - The local file path to save the downloaded file.
+  /// [onProgress] - Optional callback for progress updates.
+  /// [cancelToken] - Optional token to cancel the download.
+  ///
+  /// Example:
+  /// ```dart
+  /// await client.downloadFile(
+  ///   '/v1/tiles/download/moscow.mbtiles',
+  ///   '/path/to/save/moscow.mbtiles',
+  ///   onProgress: (received, total) {
+  ///     print('Progress: ${(received / total * 100).toStringAsFixed(0)}%');
+  ///   },
+  /// );
+  /// ```
+  Future<void> downloadFile(
+    String url,
+    String savePath, {
+    void Function(int received, int total)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    await _dio.download(
+      url,
+      savePath,
+      onReceiveProgress: onProgress,
+      cancelToken: cancelToken,
+    );
+  }
+
   /// Closes the client and releases resources.
   void close() {
     _dio.close();

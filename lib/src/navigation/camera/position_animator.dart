@@ -11,11 +11,13 @@ import '../tracking/position_smoother.dart';
 import '../tracking/route_cursor_engine.dart';
 import 'bearing_smoother.dart';
 
-/// Callback fired every animation frame with interpolated position and bearing.
+/// Callback fired every animation frame with interpolated position, bearing,
+/// speed, and current segment index for route line snapping.
 typedef AnimationFrameCallback = void Function(
   Coordinates position,
   double bearing,
   double speed,
+  int segmentIndex,
 );
 
 /// Route state for smooth on-route ↔ off-route transitions.
@@ -370,8 +372,13 @@ class PositionAnimator {
     _currentPosition = interpolated.position;
     _currentBearing = smoothedBearing;
 
-    // Notify listener
-    onFrame?.call(_currentPosition!, _currentBearing, _currentSpeed);
+    // Notify listener with current segment index for route line snapping
+    onFrame?.call(
+      _currentPosition!,
+      _currentBearing,
+      _currentSpeed,
+      _currentSegmentIndex,
+    );
   }
 
   // ---------------------------------------------------------------------------
