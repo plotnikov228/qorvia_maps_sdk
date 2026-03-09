@@ -1,3 +1,7 @@
+## 0.2.8
+
+- Исправлена нативная сторона Android
+
 ## 0.2.7
 
 - Fixed navigation mode for better performance
