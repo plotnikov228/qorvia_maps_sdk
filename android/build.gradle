@@ -50,4 +50,7 @@ android {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
+
+    // GraphHopper for offline routing (reader-osm merged into core in v8+)
+    implementation "com.graphhopper:graphhopper-core:9.1"
 }

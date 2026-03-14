@@ -1,6 +1,6 @@
 name: qorvia_maps_sdk
 description: "Flutter SDK for geo services: navigation, routing, geocoding with MapLibre GL maps."
-version: 0.2.8
+version: 0.2.9
 homepage: https://github.com/plotnikov228/qorvia_maps_sdk
 
 environment:
@@ -66,11 +66,13 @@ dev_dependencies:
   freezed: ^3.0.0
 
 flutter:
-  # Plugin configuration for native Android code
+  # Plugin configuration for native code
   plugin:
     platforms:
       android:
         package: ru.qorviamapkit.maps_sdk
+        pluginClass: QorviaMapsPlugin
+      ios:
         pluginClass: QorviaMapsPlugin
 
   assets:

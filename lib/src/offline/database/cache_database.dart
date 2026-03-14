@@ -12,6 +12,8 @@ import 'tables/reverse_cache_table.dart';
 import 'tables/route_cache_table.dart';
 import 'tables/smart_search_cache_table.dart';
 import 'tables/offline_region_table.dart';
+import 'tables/offline_package_table.dart';
+import 'tables/package_content_table.dart';
 
 part 'cache_database.g.dart';
 
@@ -32,6 +34,8 @@ const _logTag = 'CacheDatabase';
   RouteCacheTable,
   SmartSearchCacheTable,
   OfflineRegionTable,
+  OfflinePackageTable,
+  PackageContentTable,
 ])
 class CacheDatabase extends _$CacheDatabase {
   /// Creates database with default file-based storage.
@@ -41,7 +45,7 @@ class CacheDatabase extends _$CacheDatabase {
   CacheDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,6 +76,61 @@ class CacheDatabase extends _$CacheDatabase {
               ADD COLUMN region_type TEXT NOT NULL DEFAULT 'custom'
             ''');
             NavigationLogger.info(_logTag, 'Migrated to v2: added tile download fields');
+          }
+
+          // Migration from v2 to v3: add offline packages tables
+          if (from < 3) {
+            NavigationLogger.info(_logTag, 'Migrating v2 → v3: adding package tables');
+
+            // Create offline_packages table
+            await customStatement('''
+              CREATE TABLE IF NOT EXISTS offline_packages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                package_id TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                sw_lat REAL NOT NULL,
+                sw_lon REAL NOT NULL,
+                ne_lat REAL NOT NULL,
+                ne_lon REAL NOT NULL,
+                min_zoom REAL NOT NULL DEFAULT 0,
+                max_zoom REAL NOT NULL DEFAULT 16,
+                style_url TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                total_size_bytes INTEGER NOT NULL DEFAULT 0,
+                downloaded_size_bytes INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT,
+                server_region_id TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+              )
+            ''');
+
+            // Create package_contents table
+            await customStatement('''
+              CREATE TABLE IF NOT EXISTS package_contents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                package_id TEXT NOT NULL REFERENCES offline_packages(package_id) ON DELETE CASCADE,
+                content_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'notDownloaded',
+                file_path TEXT,
+                size_bytes INTEGER NOT NULL DEFAULT 0,
+                downloaded_bytes INTEGER NOT NULL DEFAULT 0,
+                version TEXT,
+                checksum TEXT,
+                error_message TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                UNIQUE(package_id, content_type)
+              )
+            ''');
+
+            // Create index for faster content lookups
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS idx_package_contents_package_id
+              ON package_contents(package_id)
+            ''');
+
+            NavigationLogger.info(_logTag, 'Migrated to v3: added package tables');
           }
         },
         beforeOpen: (details) async {
@@ -295,6 +354,201 @@ class CacheDatabase extends _$CacheDatabase {
       status: status != null ? Value(status) : const Value.absent(),
       updatedAt: Value(now),
     ));
+  }
+
+  // ============================================================
+  // Offline Package Operations
+  // ============================================================
+
+  /// Insert a new offline package.
+  Future<int> insertPackage(OfflinePackageTableCompanion entry) async {
+    NavigationLogger.debug(_logTag, 'Inserting package', {
+      'packageId': entry.packageId.value,
+      'name': entry.name.value,
+    });
+    return into(offlinePackageTable).insert(entry);
+  }
+
+  /// Update an offline package by package ID.
+  Future<int> updatePackageById(
+    String packageId,
+    OfflinePackageTableCompanion entry,
+  ) async {
+    NavigationLogger.debug(_logTag, 'Updating package', {
+      'packageId': packageId,
+    });
+    return (update(offlinePackageTable)
+          ..where((t) => t.packageId.equals(packageId)))
+        .write(entry);
+  }
+
+  /// Get an offline package by ID.
+  Future<OfflinePackageTableData?> getPackage(String packageId) async {
+    return (select(offlinePackageTable)
+          ..where((t) => t.packageId.equals(packageId)))
+        .getSingleOrNull();
+  }
+
+  /// Get all offline packages.
+  Future<List<OfflinePackageTableData>> getAllPackages() async {
+    return (select(offlinePackageTable)
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+  }
+
+  /// Get packages by status.
+  Future<List<OfflinePackageTableData>> getPackagesByStatus(String status) async {
+    return (select(offlinePackageTable)
+          ..where((t) => t.status.equals(status))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+  }
+
+  /// Delete an offline package and all its contents (cascade).
+  Future<int> deletePackage(String packageId) async {
+    NavigationLogger.info(_logTag, 'Deleting package', {'packageId': packageId});
+
+    // Contents are deleted automatically via ON DELETE CASCADE
+    return (delete(offlinePackageTable)
+          ..where((t) => t.packageId.equals(packageId)))
+        .go();
+  }
+
+  /// Update package download progress.
+  Future<void> updatePackageProgress(
+    String packageId, {
+    required int downloadedSizeBytes,
+    String? status,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await (update(offlinePackageTable)
+          ..where((t) => t.packageId.equals(packageId)))
+        .write(OfflinePackageTableCompanion(
+      downloadedSizeBytes: Value(downloadedSizeBytes),
+      status: status != null ? Value(status) : const Value.absent(),
+      updatedAt: Value(now),
+    ));
+  }
+
+  /// Count packages.
+  Future<int> countPackages() async {
+    final count = offlinePackageTable.id.count();
+    final query = selectOnly(offlinePackageTable)..addColumns([count]);
+    final result = await query.getSingle();
+    return result.read(count) ?? 0;
+  }
+
+  // ============================================================
+  // Package Content Operations
+  // ============================================================
+
+  /// Insert package content.
+  Future<int> insertPackageContent(PackageContentTableCompanion entry) async {
+    NavigationLogger.debug(_logTag, 'Inserting package content', {
+      'packageId': entry.packageId.value,
+      'contentType': entry.contentType.value,
+    });
+    return into(packageContentTable).insert(entry);
+  }
+
+  /// Insert or update package content.
+  Future<int> upsertPackageContent(PackageContentTableCompanion entry) async {
+    return into(packageContentTable).insertOnConflictUpdate(entry);
+  }
+
+  /// Update package content by package ID and content type.
+  Future<int> updatePackageContent(
+    String packageId,
+    String contentType,
+    PackageContentTableCompanion entry,
+  ) async {
+    NavigationLogger.debug(_logTag, 'Updating package content', {
+      'packageId': packageId,
+      'contentType': contentType,
+    });
+    return (update(packageContentTable)
+          ..where((t) =>
+              t.packageId.equals(packageId) &
+              t.contentType.equals(contentType)))
+        .write(entry);
+  }
+
+  /// Get all contents for a package.
+  Future<List<PackageContentTableData>> getPackageContents(
+    String packageId,
+  ) async {
+    return (select(packageContentTable)
+          ..where((t) => t.packageId.equals(packageId)))
+        .get();
+  }
+
+  /// Get specific content for a package.
+  Future<PackageContentTableData?> getPackageContent(
+    String packageId,
+    String contentType,
+  ) async {
+    return (select(packageContentTable)
+          ..where((t) =>
+              t.packageId.equals(packageId) &
+              t.contentType.equals(contentType)))
+        .getSingleOrNull();
+  }
+
+  /// Update content download progress.
+  Future<void> updateContentProgress(
+    String packageId,
+    String contentType, {
+    required int downloadedBytes,
+    String? status,
+    String? filePath,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await (update(packageContentTable)
+          ..where((t) =>
+              t.packageId.equals(packageId) &
+              t.contentType.equals(contentType)))
+        .write(PackageContentTableCompanion(
+      downloadedBytes: Value(downloadedBytes),
+      status: status != null ? Value(status) : const Value.absent(),
+      filePath: filePath != null ? Value(filePath) : const Value.absent(),
+      updatedAt: Value(now),
+    ));
+  }
+
+  /// Delete all contents for a package.
+  Future<int> deletePackageContents(String packageId) async {
+    return (delete(packageContentTable)
+          ..where((t) => t.packageId.equals(packageId)))
+        .go();
+  }
+
+  /// Delete specific content for a package.
+  Future<int> deletePackageContent(
+    String packageId,
+    String contentType,
+  ) async {
+    NavigationLogger.debug(_logTag, 'Deleting package content', {
+      'packageId': packageId,
+      'contentType': contentType,
+    });
+    return (delete(packageContentTable)
+          ..where((t) =>
+              t.packageId.equals(packageId) &
+              t.contentType.equals(contentType)))
+        .go();
+  }
+
+  /// Get package with all its contents.
+  ///
+  /// Returns a tuple of (package, contents) or null if not found.
+  Future<(OfflinePackageTableData, List<PackageContentTableData>)?> getPackageWithContents(
+    String packageId,
+  ) async {
+    final package = await getPackage(packageId);
+    if (package == null) return null;
+
+    final contents = await getPackageContents(packageId);
+    return (package, contents);
   }
 
   // ============================================================

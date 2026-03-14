@@ -9,12 +9,23 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
 import 'client/qorvia_maps_client.dart';
+import 'exceptions/qorvia_maps_exception.dart';
+import 'config/transport_mode.dart';
 import 'map/map_options.dart';
+import 'models/coordinates.dart';
+import 'models/geocode/geocode_response.dart';
+import 'models/reverse/reverse_response.dart';
+import 'models/route/route_response.dart';
 import 'offline/config/offline_config.dart';
 import 'offline/client/offline_aware_client.dart';
 import 'offline/connectivity/connectivity_service.dart';
 import 'offline/connectivity/network_status.dart';
 import 'offline/database/cache_database.dart';
+import 'offline/geocoding/offline_geocoding_service.dart';
+import 'offline/package/offline_package_manager.dart';
+import 'offline/package/services/geocoding_data_service.dart';
+import 'offline/package/services/routing_data_service.dart';
+import 'offline/routing/offline_routing_service.dart';
 import 'offline/tiles/offline_region.dart';
 import 'offline/tiles/offline_tile_manager.dart';
 
@@ -68,6 +79,9 @@ class QorviaMapsSDK {
   CacheDatabase? _cacheDatabase;
   OfflineAwareClient? _offlineClient;
   OfflineTileManager? _offlineTileManager;
+  OfflineRoutingService? _offlineRoutingService;
+  OfflineGeocodingService? _offlineGeocodingService;
+  OfflinePackageManager? _offlinePackageManager;
   String? _cachedTileUrl;
   bool _tileUrlLoading = false;
   List<void Function(String?)>? _tileUrlWaiters;
@@ -102,6 +116,22 @@ class QorviaMapsSDK {
   /// Returns null if offline mode is not enabled or not initialized.
   static OfflineTileManager? get offlineManager => _instance?._offlineTileManager;
 
+  /// The offline routing service for route calculation without network.
+  ///
+  /// Returns null if offline mode is not enabled or not initialized.
+  static OfflineRoutingService? get offlineRouting => _instance?._offlineRoutingService;
+
+  /// The offline geocoding service for address search without network.
+  ///
+  /// Returns null if offline mode is not enabled or not initialized.
+  static OfflineGeocodingService? get offlineGeocoding => _instance?._offlineGeocodingService;
+
+  /// The offline package manager for unified offline content management.
+  ///
+  /// Manages downloading and storing tiles, routing graphs, and geocoding data.
+  /// Returns null if offline mode is not enabled or not initialized.
+  static OfflinePackageManager? get packageManager => _instance?._offlinePackageManager;
+
   /// Whether the tile URL has been loaded.
   bool get hasTileUrl => _cachedTileUrl != null;
 
@@ -117,6 +147,10 @@ class QorviaMapsSDK {
   /// [enableLogging] - Enable debug logging (default: false).
   /// [prefetchTileUrl] - Whether to fetch tile URL immediately (default: true).
   /// [offlineConfig] - Optional configuration for offline mode.
+  /// [validateApiKey] - Whether to validate API key on init (default: true).
+  ///   If true and key is invalid, throws [AuthException].
+  ///
+  /// Throws [AuthException] if [validateApiKey] is true and the API key is invalid.
   ///
   /// Example:
   /// ```dart
@@ -136,6 +170,7 @@ class QorviaMapsSDK {
     bool enableLogging = false,
     bool prefetchTileUrl = true,
     OfflineConfig? offlineConfig,
+    bool validateApiKey = true,
   }) async {
     _enableLogging = enableLogging;
     _offlineConfig = offlineConfig;
@@ -145,6 +180,7 @@ class QorviaMapsSDK {
       'enableLogging': enableLogging,
       'prefetchTileUrl': prefetchTileUrl,
       'offlineEnabled': offlineConfig?.enabled ?? false,
+      'validateApiKey': validateApiKey,
     });
 
     // Create or update instance
@@ -161,6 +197,30 @@ class QorviaMapsSDK {
       baseUrl: baseUrl,
       enableLogging: enableLogging,
     );
+
+    // Validate API key by calling quota endpoint
+    if (validateApiKey) {
+      _log('Validating API key...');
+      try {
+        await _instance!._client!.quota();
+        _log('API key validated successfully');
+      } catch (e) {
+        _log('API key validation failed', {'error': e.toString()}, true);
+        // Cleanup on failure
+        _instance!._client?.dispose();
+        _instance!._client = null;
+        _instance = null;
+
+        // Provide helpful error message with link to get API key
+        if (e is AuthException) {
+          throw AuthException(
+            message: 'Invalid API key. Get your API key at https://qorviamapkit.ru',
+            requestId: e.requestId,
+          );
+        }
+        rethrow;
+      }
+    }
 
     // Initialize offline support if enabled
     if (offlineConfig?.enabled ?? false) {
@@ -204,6 +264,35 @@ class QorviaMapsSDK {
         defaultStyleUrl: '', // Will be set when tile URL is fetched
       );
       await _offlineTileManager!.initialize();
+
+      // Create offline routing service
+      _offlineRoutingService = OfflineRoutingService(
+        logger: _enableLogging ? (msg) => _log(msg) : null,
+      );
+
+      // Create offline geocoding service
+      _offlineGeocodingService = OfflineGeocodingService(
+        logger: _enableLogging ? (msg) => _log(msg) : null,
+      );
+
+      // Create data services for package manager
+      final routingDataService = RoutingDataService(
+        _client!.httpClient,
+        logger: _enableLogging ? (msg) => _log(msg) : null,
+      );
+      final geocodingDataService = GeocodingDataService(
+        _client!.httpClient,
+        logger: _enableLogging ? (msg) => _log(msg) : null,
+      );
+
+      // Create offline package manager
+      _offlinePackageManager = OfflinePackageManager(
+        database: _cacheDatabase!,
+        tileService: _client!.tileDownload,
+        routingService: routingDataService,
+        geocodingService: geocodingDataService,
+      );
+      await _offlinePackageManager!.initialize();
 
       _log('Offline support initialized', {
         'networkStatus': ConnectivityService.instance.currentStatus.name,
@@ -549,6 +638,14 @@ class QorviaMapsSDK {
   static Future<void> dispose() async {
     _log('dispose() called');
 
+    // Dispose offline services
+    await _instance?._offlineRoutingService?.dispose();
+    _instance?._offlineRoutingService = null;
+    _instance?._offlineGeocodingService?.dispose();
+    _instance?._offlineGeocodingService = null;
+    _instance?._offlinePackageManager?.dispose();
+    _instance?._offlinePackageManager = null;
+
     await _instance?._offlineTileManager?.dispose();
     _instance?._offlineTileManager = null;
     _instance?._offlineClient?.dispose();
@@ -675,6 +772,172 @@ class QorviaMapsSDK {
     return _instance!._fetchTileUrl();
   }
 
+  // ==================== OFFLINE-FIRST ROUTING ====================
+
+  /// Calculates a route, trying offline first then falling back to online.
+  ///
+  /// [regionId] - Region ID for offline routing (required).
+  /// [from] - Starting point coordinates.
+  /// [to] - Destination point coordinates.
+  /// [waypoints] - Optional intermediate waypoints.
+  /// [mode] - Transport mode (default: car).
+  /// [preferOffline] - If true, uses offline when available (default: true).
+  ///
+  /// Returns [OfflineFirstRouteResult] with the route and source information.
+  ///
+  /// Example:
+  /// ```dart
+  /// final result = await QorviaMapsSDK.routeOfflineFirst(
+  ///   regionId: 'moscow',
+  ///   from: Coordinates(lat: 55.7558, lon: 37.6173),
+  ///   to: Coordinates(lat: 55.7000, lon: 37.5000),
+  /// );
+  /// print('Route source: ${result.isOffline ? "offline" : "online"}');
+  /// print('Distance: ${result.route.formattedDistance}');
+  /// ```
+  static Future<OfflineFirstRouteResult> routeOfflineFirst({
+    required String regionId,
+    required Coordinates from,
+    required Coordinates to,
+    List<Coordinates>? waypoints,
+    TransportMode mode = TransportMode.car,
+    bool preferOffline = true,
+  }) async {
+    if (_instance == null) {
+      throw StateError('QorviaMapsSDK is not initialized');
+    }
+
+    // Try offline first if enabled and graph is loaded
+    if (preferOffline && _instance!._offlineRoutingService != null) {
+      if (_instance!._offlineRoutingService!.isGraphLoaded(regionId)) {
+        try {
+          _log('Attempting offline route calculation', {
+            'regionId': regionId,
+          });
+          final route = await _instance!._offlineRoutingService!.getRoute(
+            regionId: regionId,
+            from: from,
+            to: to,
+            waypoints: waypoints,
+            mode: mode,
+          );
+          return OfflineFirstRouteResult(route: route, isOffline: true);
+        } catch (e) {
+          _log('Offline routing failed, falling back to online', {
+            'error': e.toString(),
+          }, true);
+        }
+      }
+    }
+
+    // Fall back to online
+    _log('Using online route calculation');
+    final route = await _instance!._client!.route(
+      from: from,
+      to: to,
+      waypoints: waypoints,
+      mode: mode,
+    );
+    return OfflineFirstRouteResult(route: route, isOffline: false);
+  }
+
+  // ==================== OFFLINE-FIRST GEOCODING ====================
+
+  /// Searches for addresses, trying offline first then falling back to online.
+  ///
+  /// [regionId] - Region ID for offline geocoding (required).
+  /// [query] - Search query.
+  /// [limit] - Maximum results (default: 5).
+  /// [userLat], [userLon] - User location for biased results.
+  /// [preferOffline] - If true, uses offline when available (default: true).
+  ///
+  /// Returns [OfflineFirstGeocodeResult] with results and source information.
+  static Future<OfflineFirstGeocodeResult> geocodeOfflineFirst({
+    required String regionId,
+    required String query,
+    int limit = 5,
+    double? userLat,
+    double? userLon,
+    bool preferOffline = true,
+  }) async {
+    if (_instance == null) {
+      throw StateError('QorviaMapsSDK is not initialized');
+    }
+
+    // Try offline first if enabled and database is loaded
+    if (preferOffline && _instance!._offlineGeocodingService != null) {
+      if (_instance!._offlineGeocodingService!.isDatabaseLoaded(regionId)) {
+        try {
+          _log('Attempting offline geocoding', {'regionId': regionId});
+          final response = await _instance!._offlineGeocodingService!.geocode(
+            regionId: regionId,
+            query: query,
+            limit: limit,
+            userLat: userLat,
+            userLon: userLon,
+          );
+          return OfflineFirstGeocodeResult(response: response, isOffline: true);
+        } catch (e) {
+          _log('Offline geocoding failed, falling back to online', {
+            'error': e.toString(),
+          }, true);
+        }
+      }
+    }
+
+    // Fall back to online
+    _log('Using online geocoding');
+    final response = await _instance!._client!.geocode(
+      query: query,
+      limit: limit,
+      userLat: userLat,
+      userLon: userLon,
+    );
+    return OfflineFirstGeocodeResult(response: response, isOffline: false);
+  }
+
+  /// Reverse geocodes coordinates, trying offline first then falling back to online.
+  ///
+  /// [regionId] - Region ID for offline geocoding (required).
+  /// [coordinates] - Location to reverse geocode.
+  /// [preferOffline] - If true, uses offline when available (default: true).
+  ///
+  /// Returns [OfflineFirstReverseResult] with result and source information.
+  static Future<OfflineFirstReverseResult> reverseOfflineFirst({
+    required String regionId,
+    required Coordinates coordinates,
+    bool preferOffline = true,
+  }) async {
+    if (_instance == null) {
+      throw StateError('QorviaMapsSDK is not initialized');
+    }
+
+    // Try offline first if enabled and database is loaded
+    if (preferOffline && _instance!._offlineGeocodingService != null) {
+      if (_instance!._offlineGeocodingService!.isDatabaseLoaded(regionId)) {
+        try {
+          _log('Attempting offline reverse geocoding', {'regionId': regionId});
+          final response = await _instance!._offlineGeocodingService!.reverse(
+            regionId: regionId,
+            coordinates: coordinates,
+          );
+          return OfflineFirstReverseResult(response: response, isOffline: true);
+        } catch (e) {
+          _log('Offline reverse geocoding failed, falling back to online', {
+            'error': e.toString(),
+          }, true);
+        }
+      }
+    }
+
+    // Fall back to online
+    _log('Using online reverse geocoding');
+    final response = await _instance!._client!.reverse(
+      coordinates: coordinates,
+    );
+    return OfflineFirstReverseResult(response: response, isOffline: false);
+  }
+
   static void _log(String message, [Map<String, dynamic>? data, bool isError = false]) {
     if (!_enableLogging) return;
 
@@ -687,4 +950,57 @@ class QorviaMapsSDK {
       debugPrint('$prefix $message$dataStr');
     }
   }
+}
+
+// ==================== RESULT WRAPPER CLASSES ====================
+
+/// Result of offline-first route calculation.
+class OfflineFirstRouteResult {
+  /// The calculated route.
+  final RouteResponse route;
+
+  /// Whether the route was calculated offline.
+  final bool isOffline;
+
+  const OfflineFirstRouteResult({
+    required this.route,
+    required this.isOffline,
+  });
+
+  /// Data source: 'offline' or 'online'.
+  String get source => isOffline ? 'offline' : 'online';
+}
+
+/// Result of offline-first geocoding.
+class OfflineFirstGeocodeResult {
+  /// The geocoding response.
+  final GeocodeResponse response;
+
+  /// Whether the results came from offline database.
+  final bool isOffline;
+
+  const OfflineFirstGeocodeResult({
+    required this.response,
+    required this.isOffline,
+  });
+
+  /// Data source: 'offline' or 'online'.
+  String get source => isOffline ? 'offline' : 'online';
+}
+
+/// Result of offline-first reverse geocoding.
+class OfflineFirstReverseResult {
+  /// The reverse geocoding response.
+  final ReverseResponse response;
+
+  /// Whether the result came from offline database.
+  final bool isOffline;
+
+  const OfflineFirstReverseResult({
+    required this.response,
+    required this.isOffline,
+  });
+
+  /// Data source: 'offline' or 'online'.
+  String get source => isOffline ? 'offline' : 'online';
 }

@@ -43,16 +43,23 @@ class QuotaResponse extends Equatable {
 
   factory QuotaResponse.fromJson(Map<String, dynamic> json) {
     return QuotaResponse(
-      requestId: json['request_id'] as String,
-      plan: json['plan'] as String,
-      rateLimit: json['rate_limit'] as int,
-      dailyLimit: json['daily_limit'] as int,
-      dailyUsed: json['daily_used'] as int,
-      dailyRemaining: json['daily_remaining'] as int,
-      monthlyLimit: json['monthly_limit'] as int,
-      monthlyUsed: json['monthly_used'] as int,
-      monthlyRemaining: json['monthly_remaining'] as int,
+      requestId: json['request_id'] as String? ?? '',
+      plan: json['plan'] as String? ?? 'unknown',
+      rateLimit: _parseInt(json['rate_limit']),
+      dailyLimit: _parseInt(json['daily_limit']),
+      dailyUsed: _parseInt(json['daily_used']),
+      dailyRemaining: _parseInt(json['daily_remaining']),
+      monthlyLimit: _parseInt(json['monthly_limit']),
+      monthlyUsed: _parseInt(json['monthly_used']),
+      monthlyRemaining: _parseInt(json['monthly_remaining']),
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   Map<String, dynamic> toJson() => {

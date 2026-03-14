@@ -20,6 +20,34 @@ const _logTag = 'OfflineTileManager';
 
 /// Manager for offline map tile downloads.
 ///
+/// **DEPRECATED**: Use [OfflinePackageManager] for new implementations.
+/// This manager handles only tiles, while [OfflinePackageManager] provides
+/// unified packages with tiles, routing, and geocoding in one download.
+///
+/// ## Migration Guide
+///
+/// Replace [OfflineTileManager] with [OfflinePackageManager]:
+///
+/// ```dart
+/// // Old way (deprecated):
+/// final tileManager = OfflineTileManager(database: db, downloadService: svc);
+/// final region = await tileManager.createRegion(params, styleUrl: url);
+/// tileManager.downloadRegion(region.id).listen((progress) { ... });
+///
+/// // New way (recommended):
+/// final packageManager = QorviaMapsSDK.packageManager;
+/// final package = await packageManager.createPackage(
+///   CreatePackageParams(
+///     name: 'Moscow',
+///     bounds: bounds,
+///     contentTypes: {PackageContentType.tiles}, // or add routing, geocoding
+///   ),
+/// );
+/// packageManager.downloadPackage(package.id).listen((event) { ... });
+/// ```
+///
+/// ## Features
+///
 /// Provides functionality to:
 /// - Create and manage offline map regions
 /// - Download map tiles for offline use via server API
@@ -65,6 +93,9 @@ const _logTag = 'OfflineTileManager';
 ///   print('Downloaded: ${progress.progressPercent}%');
 /// });
 /// ```
+///
+/// @Deprecated('Use OfflinePackageManager instead for unified offline packages')
+@Deprecated('Use OfflinePackageManager instead for unified offline packages')
 class OfflineTileManager {
   final CacheDatabase _database;
   final TileDownloadService _downloadService;

@@ -95,6 +95,11 @@ class QorviaMapsClient {
   TileDownloadService get tileDownload =>
       _tileDownloadService ??= TileDownloadService(_httpClient);
 
+  /// Internal HTTP client for SDK internal use.
+  ///
+  /// @internal This is for SDK internal use only and should not be used directly.
+  QorviaMapsHttpClient get httpClient => _httpClient;
+
   // ==================== ROUTING ====================
 
   /// Calculates a route between two points with optional waypoints.

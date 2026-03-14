@@ -130,9 +130,12 @@ class _RegionSelectionOverlayState extends State<RegionSelectionOverlay> {
     return Stack(
       children: [
         // Dimmed overlay outside selection
-        _DimmedOverlay(
-          selectionRect: _selectionRect,
-          color: Colors.black.withValues(alpha: 0.4),
+        // IgnorePointer allows gestures to pass through to the map
+        IgnorePointer(
+          child: _DimmedOverlay(
+            selectionRect: _selectionRect,
+            color: Colors.black.withValues(alpha: 0.4),
+          ),
         ),
 
         // Selection rectangle
@@ -181,12 +184,14 @@ class _RegionSelectionOverlayState extends State<RegionSelectionOverlay> {
             child: _buildButtons(context, borderColor),
           ),
 
-        // Instructions
+        // Instructions (IgnorePointer allows map gestures through)
         Positioned(
           top: 60,
           left: 0,
           right: 0,
-          child: _buildInstructions(context),
+          child: IgnorePointer(
+            child: _buildInstructions(context),
+          ),
         ),
       ],
     );

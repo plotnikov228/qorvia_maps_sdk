@@ -1,6 +1,11 @@
+## 0.2.9
+
+- Improved navigation mode for better performance
+- Improved map initialization
+
 ## 0.2.8
 
-- Исправлена нативная сторона Android
+- Fix Android side native code
 
 ## 0.2.7
 

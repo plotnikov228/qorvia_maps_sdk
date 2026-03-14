@@ -56,6 +56,18 @@ class NavigationWidgetColors {
   /// Default: Red (#E53935).
   final Color speedLimitBorder;
 
+  // === Route Progress Colors ===
+
+  /// Color for the active (remaining) portion of route progress.
+  ///
+  /// Default: Blue (#2979FF).
+  final Color routeProgressActive;
+
+  /// Color for the traveled portion of route progress.
+  ///
+  /// Default: Gray (#BDBDBD).
+  final Color routeProgressTraveled;
+
   const NavigationWidgetColors({
     this.turnPanelBackground = kDefaultTurnPanelBlue,
     this.turnPanelText = Colors.white,
@@ -63,6 +75,8 @@ class NavigationWidgetColors {
     this.speedText = kDefaultSpeedTextColor,
     this.speedOverLimit = kDefaultSpeedOverLimitColor,
     this.speedLimitBorder = kDefaultSpeedLimitBorderColor,
+    this.routeProgressActive = kDefaultTurnPanelBlue,
+    this.routeProgressTraveled = const Color(0xFFBDBDBD),
   });
 
   /// Creates a copy with modified properties.
@@ -73,6 +87,8 @@ class NavigationWidgetColors {
     Color? speedText,
     Color? speedOverLimit,
     Color? speedLimitBorder,
+    Color? routeProgressActive,
+    Color? routeProgressTraveled,
   }) {
     return NavigationWidgetColors(
       turnPanelBackground: turnPanelBackground ?? this.turnPanelBackground,
@@ -81,13 +97,16 @@ class NavigationWidgetColors {
       speedText: speedText ?? this.speedText,
       speedOverLimit: speedOverLimit ?? this.speedOverLimit,
       speedLimitBorder: speedLimitBorder ?? this.speedLimitBorder,
+      routeProgressActive: routeProgressActive ?? this.routeProgressActive,
+      routeProgressTraveled: routeProgressTraveled ?? this.routeProgressTraveled,
     );
   }
 
   @override
   String toString() => 'NavigationWidgetColors('
       'turnBg: $turnPanelBackground, '
-      'speedBg: $speedBackground)';
+      'speedBg: $speedBackground, '
+      'progressActive: $routeProgressActive)';
 }
 
 /// Builder function for speed indicator widget.

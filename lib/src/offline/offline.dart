@@ -17,5 +17,19 @@ export 'client/offline_aware_client.dart';
 // Tile management
 export 'tiles/tiles.dart';
 
+// Offline routing
+export 'routing/offline_routing_service.dart';
+
+// Offline geocoding
+export 'geocoding/offline_geocoding_service.dart';
+
+// Package management
+export 'package/offline_package_manager.dart';
+export 'package/models/offline_package.dart';
+export 'package/models/package_content.dart';
+export 'package/models/package_download_progress.dart';
+export 'package/services/routing_data_service.dart';
+export 'package/services/geocoding_data_service.dart';
+
 // UI widgets
 export 'ui/ui.dart';

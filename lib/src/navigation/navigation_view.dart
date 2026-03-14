@@ -632,6 +632,8 @@ class _NavigationViewState extends State<NavigationView>
             : CompactEtaPanel(
                 state: _navState!,
                 onTap: _onClose,
+                activeColor: config.colors.routeProgressActive,
+                traveledColor: config.colors.routeProgressTraveled,
               ),
       ),
     );

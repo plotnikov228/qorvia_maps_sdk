@@ -1,38 +1,38 @@
 # Qorvia Maps SDK
 
-Flutter SDK для гео-сервисов: навигация, маршрутизация, геокодирование и интерактивные карты на базе MapLibre GL.
+Flutter SDK for geo services: navigation, routing, geocoding, and interactive maps powered by MapLibre GL.
 
-[English version](README.en.md)
+[Русская версия](README.md)
 
-## Получение API-ключа
+## Getting API Key
 
-Для использования SDK необходим API-ключ. Перейдите на [qorviamapkit.ru](https://qorviamapkit.ru), чтобы создать ключ и управлять аккаунтом.
+To use the SDK, you need an API key. Go to [qorviamapkit.ru](https://qorviamapkit.ru) to create your API key and manage your account.
 
-## Возможности
+## Features
 
-- **Инициализация SDK** — глобальная конфигурация с автоматической загрузкой URL тайлов
-- **API-клиент** — маршрутизация, геокодирование, обратное геокодирование, квоты и статистика использования
-- **Виджет карты** — интерактивная карта MapLibre GL с поддержкой жестов
-- **Маркеры** — стандартные, SVG, asset, сетевые, виджетные, нумерованные, анимированные и кешируемые иконки
-- **Кластеризация** — автоматическая кластеризация маркеров с настраиваемым стилем
-- **Отображение маршрута** — настраиваемый рендеринг линии маршрута
-- **Пошаговая навигация** — навигация в реальном времени с отслеживанием состояния
-- **Голосовые подсказки** — голосовые инструкции через Text-to-Speech
-- **Сервис геолокации** — GPS-трекинг с фильтрацией Калмана
-- **Offline режим** — Навигация и карты в режиме оффлайн
+- **SDK Initialization** - Global configuration with automatic tile URL loading
+- **API Client** - Routing, geocoding, reverse geocoding, quota and usage tracking
+- **Map Widget** - Interactive MapLibre GL map with gesture support
+- **Markers** - Default, SVG, asset, network, widget, numbered, animated and cached icons
+- **Clustering** - Automatic marker clustering with customizable style
+- **Route Display** - Configurable route line rendering
+- **Turn-by-turn Navigation** - Real-time navigation with state tracking
+- **Voice Guidance** - Text-to-speech navigation instructions
+- **Location Service** - GPS tracking with Kalman filtering
+- **Offline mode** — Navigation and maps without internet
 
-## Установка
+## Installation
 
-Добавьте зависимость в `pubspec.yaml`:
+Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  qorvia_maps_sdk: ^0.2.7
+  qorvia_maps_sdk: ^0.2.9
 ```
 
-### Настройка платформ
+### Platform Setup
 
-**Android** — добавьте в `AndroidManifest.xml`:
+**Android** - Add to `AndroidManifest.xml`:
 
 ```xml
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -40,18 +40,18 @@ dependencies:
 <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 ```
 
-**iOS** — добавьте в `Info.plist`:
+**iOS** - Add to `Info.plist`:
 
 ```xml
 <key>NSLocationWhenInUseUsageDescription</key>
-<string>Приложению необходим доступ к геолокации для навигации</string>
+<string>App needs location access for navigation</string>
 <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>Приложению необходима фоновая геолокация для пошаговой навигации</string>
+<string>App needs background location for turn-by-turn navigation</string>
 ```
 
-## Быстрый старт
+## Quick Start
 
-### Инициализация SDK
+### Initialize the SDK
 
 ```dart
 import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart';
@@ -59,17 +59,17 @@ import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Инициализация SDK — автоматически загружает URL тайлов
+  // Initialize SDK - automatically fetches map tile URL
   await QorviaMapsSDK.init(
     apiKey: 'your_api_key',
-    enableLogging: true,  // опционально, для отладки
+    enableLogging: true,  // optional, for debugging
   );
 
   runApp(MyApp());
 }
 ```
 
-### Отображение карты
+### Display a Map
 
 ```dart
 final controller = QorviaMapController();
@@ -81,11 +81,11 @@ QorviaMapView(
     initialZoom: 13,
     showUserLocation: true,
   ),
-  onMapTap: (coordinates) => print('Нажатие: $coordinates'),
+  onMapTap: (coordinates) => print('Tapped: $coordinates'),
 )
 ```
 
-### Добавление маркеров
+### Add Markers
 
 ```dart
 QorviaMapView(
@@ -94,30 +94,30 @@ QorviaMapView(
     initialCenter: Coordinates(lat: 55.7539, lon: 37.6208),
   ),
   markers: [
-    // Стандартный маркер
+    // Default marker
     Marker(
       id: 'start',
       position: Coordinates(lat: 55.7539, lon: 37.6208),
       icon: DefaultMarkerIcon.start,
     ),
-    // Нумерованный маркер
+    // Numbered marker
     Marker(
       id: 'waypoint1',
       position: Coordinates(lat: 55.7545, lon: 37.6220),
       icon: NumberedMarkerIcon(number: 1),
     ),
-    // Анимированный маркер
+    // Animated marker
     Marker(
       id: 'active',
       position: Coordinates(lat: 55.7550, lon: 37.6230),
       icon: AnimatedMarkerIcon.pulsingPrimary,
     ),
   ],
-  onMarkerTap: (marker) => print('Нажат: ${marker.id}'),
+  onMarkerTap: (marker) => print('Tapped: ${marker.id}'),
 )
 ```
 
-### Кластеризация маркеров
+### Marker Clustering
 
 ```dart
 QorviaMapView(
@@ -129,14 +129,14 @@ QorviaMapView(
     radiusPx: 60,
     minClusterSize: 3,
   ),
-  onClusterTap: (cluster) => print('Кластер: ${cluster.count} маркеров'),
+  onClusterTap: (cluster) => print('Cluster: ${cluster.count} markers'),
 )
 ```
 
-### Построение маршрута
+### Calculate Route
 
 ```dart
-// Используем глобальный клиент SDK
+// Use the global SDK client
 final client = QorviaMapsSDK.instance.client;
 
 final route = await client.route(
@@ -146,48 +146,48 @@ final route = await client.route(
   language: 'ru',
 );
 
-print('Расстояние: ${route.formattedDistance}');
-print('Время: ${route.formattedDuration}');
+print('Distance: ${route.formattedDistance}');
+print('Duration: ${route.formattedDuration}');
 
-// Отобразить на карте
+// Display on map
 controller.displayRoute(route, options: RouteLineOptions.primary());
 ```
 
-### Геокодирование
+### Geocoding
 
 ```dart
-// Адрес в координаты
+// Address to coordinates
 final response = await client.geocode(
-  query: 'Красная площадь, Москва',
+  query: 'Red Square, Moscow',
   limit: 5,
-  language: 'ru',
+  language: 'en',
 );
 
 for (final result in response.results) {
   print('${result.displayName}: ${result.coordinates}');
 }
 
-// Геокодирование с приоритизацией по близости к пользователю
+// Geocoding with location bias (prioritize results near user)
 final nearbyResponse = await client.geocode(
-  query: 'вокзал',
+  query: 'train station',
   limit: 5,
-  language: 'ru',
+  language: 'en',
   userLat: 53.404935,
   userLon: 58.965423,
   radiusKm: 50,
   biasLocation: true,
 );
-// Результаты отсортированы по близости к указанным координатам
+// Results are sorted by proximity to the specified coordinates
 
-// Координаты в адрес
+// Coordinates to address
 final address = await client.reverse(
   coordinates: Coordinates(lat: 55.7539, lon: 37.6208),
-  language: 'ru',
+  language: 'en',
 );
-print('Адрес: ${address.displayName}');
+print('Address: ${address.displayName}');
 ```
 
-### Пошаговая навигация
+### Turn-by-Turn Navigation
 
 ```dart
 NavigationView(
@@ -195,84 +195,84 @@ NavigationView(
   options: NavigationOptions(
     enableVoiceInstructions: true,
     voiceGuidanceOptions: const VoiceGuidanceOptions(
-      language: 'ru-RU',
+      language: 'en-US',
       speechRate: 0.5,
     ),
     trackingMode: CameraTrackingMode.followWithBearing,
     autoReroute: true,
   ),
   onStateChanged: (state) {
-    print('Оставшееся расстояние: ${state.distanceRemaining}м');
-    print('Прибытие: ${state.estimatedArrival}');
+    print('Distance remaining: ${state.distanceRemaining}m');
+    print('ETA: ${state.estimatedArrival}');
   },
-  onStepChanged: (step) => print('Далее: ${step.instruction}'),
-  onOffRoute: () => print('Отклонение от маршрута'),
-  onArrival: () => print('Вы прибыли!'),
+  onStepChanged: (step) => print('Next: ${step.instruction}'),
+  onOffRoute: () => print('User went off route'),
+  onArrival: () => print('Arrived at destination!'),
   onReroute: (from, to) async {
-    // Возврат нового маршрута при отклонении
+    // Return new route when user goes off-route
     return await client.route(from: from, to: to);
   },
 )
 ```
 
-## Справочник API
+## API Reference
 
 ### QorviaMapsSDK
 
-Глобальный инициализатор и точка входа SDK.
+Global SDK initializer and entry point.
 
 ```dart
-// Инициализация
+// Initialize
 await QorviaMapsSDK.init(apiKey: 'key');
 
-// Проверка инициализации
+// Check if initialized
 if (QorviaMapsSDK.isInitialized) {
   final client = QorviaMapsSDK.instance.client;
 }
 
-// Получить URL тайлов
+// Get tile URL
 final tileUrl = await QorviaMapsSDK.instance.getTileUrl();
 
-// Освободить ресурсы
+// Dispose when done
 QorviaMapsSDK.dispose();
 ```
 
 ### QorviaMapsClient
 
-API-клиент для всех гео-сервисов.
+API client for all geo services.
 
-| Метод | Описание |
-|-------|----------|
-| `route()` | Построить маршрут между точками |
-| `geocode()` | Преобразовать адрес в координаты (с опциональной приоритизацией по геолокации) |
-| `search()` | Лучшее совпадение по запросу (с опциональной приоритизацией по геолокации) |
-| `reverse()` | Преобразовать координаты в адрес |
-| `quota()` | Получить информацию о квоте API |
-| `usage()` | Получить статистику использования |
-| `tileUrl()` | Получить URL стиля тайлов карты |
+| Method | Description |
+|--------|-------------|
+| `route()` | Calculate route between points |
+| `geocode()` | Convert address to coordinates (with optional location bias) |
+| `search()` | Single best match for query (with optional location bias) |
+| `reverse()` | Convert coordinates to address |
+| `quota()` | Get API quota information |
+| `usage()` | Get usage statistics |
+| `tileUrl()` | Get map tile style URL |
 
 ### QorviaMapView
 
-Основной виджет карты.
+Main map widget.
 
-| Параметр | Тип | Описание |
-|----------|-----|----------|
-| `controller` | `QorviaMapController?` | Контроллер карты |
-| `options` | `MapOptions` | Конфигурация карты |
-| `markers` | `List<Marker>` | Маркеры для отображения |
-| `clusterOptions` | `MarkerClusterOptions?` | Настройки кластеризации |
-| `routeLines` | `List<RouteLine>` | Маршруты для отображения |
-| `onMapCreated` | `Function(QorviaMapController)` | Callback готовности карты |
-| `onMarkerTap` | `Function(Marker)` | Callback нажатия на маркер |
-| `onClusterTap` | `Function(MarkerCluster)` | Callback нажатия на кластер |
-| `onMapTap` | `Function(Coordinates)` | Callback нажатия на карту |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `controller` | `QorviaMapController?` | Map controller |
+| `options` | `MapOptions` | Map configuration |
+| `markers` | `List<Marker>` | Markers to display |
+| `clusterOptions` | `MarkerClusterOptions?` | Clustering config |
+| `routeLines` | `List<RouteLine>` | Routes to display |
+| `onMapCreated` | `Function(QorviaMapController)` | Map ready callback |
+| `onMarkerTap` | `Function(Marker)` | Marker tap callback |
+| `onClusterTap` | `Function(MarkerCluster)` | Cluster tap callback |
+| `onMapTap` | `Function(Coordinates)` | Map tap callback |
 
 ### QorviaMapController
 
-Интерфейс управления картой.
+Map control interface.
 
 ```dart
-// Управление камерой
+// Camera control
 await controller.animateCamera(
   CameraUpdate.newPosition(CameraPosition(
     center: Coordinates(lat: 55.75, lon: 37.62),
@@ -283,98 +283,98 @@ await controller.animateCamera(
   duration: Duration(milliseconds: 800),
 );
 
-// Вписать в границы
+// Fit bounds
 await controller.animateCamera(
   CameraUpdate.newLatLngBounds(coordinates, padding: 50),
 );
 
-// Маркеры
+// Markers
 await controller.addMarker(marker);
 await controller.removeMarker('marker_id');
 await controller.clearMarkers();
 await controller.updateMarkerPosition('id', newCoordinates);
 
-// Маршруты
+// Routes
 await controller.displayRoute(route, options: RouteLineOptions.primary());
 await controller.displayRouteLine(routeLine);
 await controller.fitRoute(route, padding: EdgeInsets.all(50));
 await controller.clearRoutes();
 
-// Масштаб
+// Zoom
 await controller.zoomIn();
 await controller.zoomOut();
 ```
 
 ### NavigationView
 
-Виджет пошаговой навигации.
+Turn-by-turn navigation widget.
 
-| Параметр | Тип | Описание |
-|----------|-----|----------|
-| `route` | `RouteResponse` | Маршрут для навигации |
-| `options` | `NavigationOptions` | Настройки навигации |
-| `styleUrl` | `String?` | URL стиля карты |
-| `onStateChanged` | `Function(NavigationState)` | Обновления состояния |
-| `onStepChanged` | `Function(RouteStep)` | Callback смены шага |
-| `onArrival` | `VoidCallback` | Callback прибытия |
-| `onOffRoute` | `VoidCallback` | Callback отклонения от маршрута |
-| `onReroute` | `Function(Coordinates, Coordinates)` | Построитель нового маршрута |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `route` | `RouteResponse` | Route to navigate |
+| `options` | `NavigationOptions` | Navigation config |
+| `styleUrl` | `String?` | Map style URL |
+| `onStateChanged` | `Function(NavigationState)` | State updates |
+| `onStepChanged` | `Function(RouteStep)` | Step change callback |
+| `onArrival` | `VoidCallback` | Arrival callback |
+| `onOffRoute` | `VoidCallback` | Off-route callback |
+| `onReroute` | `Function(Coordinates, Coordinates)` | Reroute builder |
 
 ### NavigationOptions
 
-| Опция | По умолч. | Описание |
-|-------|-----------|----------|
-| `trackingMode` | `followWithBearing` | Режим отслеживания камеры |
-| `zoom` | `17` | Уровень масштаба навигации |
-| `tilt` | `55` | Угол наклона камеры |
-| `enableVoiceInstructions` | `false` | Включить голосовые подсказки |
-| `offRouteThreshold` | `30` | Метры для срабатывания отклонения |
-| `arrivalThreshold` | `35` | Метры для срабатывания прибытия |
-| `autoReroute` | `true` | Автоматический перестрой маршрута |
-| `showNextTurnPanel` | `true` | Показать панель следующего поворота |
-| `showEtaPanel` | `true` | Показать панель ETA/расстояния |
-| `showSpeedIndicator` | `true` | Показать текущую скорость |
-| `snapToRouteEnabled` | `true` | Привязка курсора к маршруту |
-| `cursorColor` | `null` | Цвет заливки стрелки навигации |
-| `cursorBorderColor` | `null` | Цвет границы стрелки навигации |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `trackingMode` | `followWithBearing` | Camera tracking mode |
+| `zoom` | `17` | Navigation zoom level |
+| `tilt` | `55` | Camera tilt angle |
+| `enableVoiceInstructions` | `false` | Enable TTS guidance |
+| `offRouteThreshold` | `30` | Meters to trigger off-route |
+| `arrivalThreshold` | `35` | Meters to trigger arrival |
+| `autoReroute` | `true` | Auto request reroute |
+| `showNextTurnPanel` | `true` | Show turn instruction |
+| `showEtaPanel` | `true` | Show ETA/distance |
+| `showSpeedIndicator` | `true` | Show current speed |
+| `snapToRouteEnabled` | `true` | Snap cursor to route |
+| `cursorColor` | `null` | Navigation arrow fill color |
+| `cursorBorderColor` | `null` | Navigation arrow border color |
 
 ### NavigationController
 
-Программное управление навигацией.
+Programmatic navigation control.
 
 ```dart
 final controller = NavigationController(
   options: NavigationOptions.driving(),
   onStateChanged: (state) => print(state),
-  onArrival: () => print('Прибыли!'),
+  onArrival: () => print('Arrived!'),
 );
 
-// Запустить навигацию
+// Start navigation
 await controller.startNavigation(route);
 
-// Обновить маршрут (перестроение)
+// Update route (reroute)
 await controller.updateRoute(newRoute);
 
-// Управление камерой
+// Camera control
 controller.setTrackingMode(CameraTrackingMode.follow);
-controller.pauseTracking();  // Пользователь сдвинул карту
-controller.recenter();       // Вернуться к отслеживанию
+controller.pauseTracking();  // User panned
+controller.recenter();       // Return to tracking
 
-// Остановить
+// Stop
 controller.stopNavigation();
 
-// Очистка
+// Cleanup
 controller.dispose();
 ```
 
 ### LocationService
 
-Управление геолокацией устройства.
+Device location management.
 
 ```dart
 final locationService = LocationService();
 
-// Проверка разрешений
+// Check permissions
 final enabled = await locationService.isLocationServiceEnabled();
 final permission = await locationService.checkPermission();
 
@@ -382,41 +382,41 @@ if (permission == LocationPermissionStatus.denied) {
   await locationService.requestPermission();
 }
 
-// Получить текущее местоположение
+// Get current location
 final location = await locationService.getCurrentLocation(
   accuracy: LocationAccuracy.high,
 );
 
-// Начать отслеживание с фильтрацией
+// Start tracking with filtering
 await locationService.startTracking(
   LocationSettings.navigation(),
   LocationFilterSettings.navigation(),
 );
 
 locationService.locationStream.listen((location) {
-  print('${location.coordinates}, скорость: ${location.speed}');
+  print('${location.coordinates}, speed: ${location.speed}');
 });
 
-// Проверка состояния
+// Health check
 final health = locationService.checkHealth();
-print('Исправен: ${health.isHealthy}');
+print('Healthy: ${health.isHealthy}');
 
-// Остановить отслеживание
+// Stop tracking
 locationService.stopTracking();
 locationService.dispose();
 ```
 
-### Иконки маркеров
+### Marker Icons
 
 ```dart
-// Стандартные пресеты
-DefaultMarkerIcon.primary    // Индиго
-DefaultMarkerIcon.red        // Красный
-DefaultMarkerIcon.green      // Зелёный
-DefaultMarkerIcon.start      // Зелёный с флагом
-DefaultMarkerIcon.end        // Красный с булавкой
+// Default presets
+DefaultMarkerIcon.primary    // Indigo
+DefaultMarkerIcon.red        // Red
+DefaultMarkerIcon.green      // Green
+DefaultMarkerIcon.start      // Green with flag
+DefaultMarkerIcon.end        // Red with pin
 
-// Пользовательский стандартный
+// Custom default
 DefaultMarkerIcon(
   color: MarkerColors.purple,
   size: 56,
@@ -424,13 +424,13 @@ DefaultMarkerIcon(
   innerIcon: Icons.star,
 )
 
-// Нумерованные
+// Numbered
 NumberedMarkerIcon(number: 1)
 NumberedMarkerIcon.letter('A')
 NumberedMarkerIcon.sequence(5)  // [1, 2, 3, 4, 5]
 NumberedMarkerIcon.letters(3)   // [A, B, C]
 
-// Анимированные
+// Animated
 AnimatedMarkerIcon.pulsingPrimary
 AnimatedMarkerIcon.dropInStart
 AnimatedMarkerIcon.rippleLocation
@@ -439,112 +439,112 @@ AnimatedMarkerIcon(
   animationType: MarkerAnimationType.pulse,
 )
 
-// На основе ассетов
+// Asset-based
 AssetMarkerIcon('assets/pin.png', width: 32, height: 32)
 SvgMarkerIcon('assets/icon.svg', size: 24, color: Colors.blue)
 NetworkMarkerIcon('https://example.com/icon.png')
 
-// Виджетный
+// Widget
 WidgetMarkerIcon(
   MyCustomWidget(),
   width: 48,
   height: 48,
 )
 
-// Кешируемый (для множества одинаковых маркеров)
+// Cached (for many identical markers)
 CachedMarkerIcon.primary()
 ```
 
-### Режимы транспорта
+### Transport Modes
 
 ```dart
-TransportMode.car    // Автомобиль
-TransportMode.bike   // Велосипед
-TransportMode.foot   // Пешком
-TransportMode.truck  // Грузовик с ограничениями
+TransportMode.car    // Car/automobile
+TransportMode.bike   // Bicycle
+TransportMode.foot   // Walking
+TransportMode.truck  // Truck with restrictions
 ```
 
-### Стили карт
+### Map Styles
 
 ```dart
 MapStyles.osm                 // OpenStreetMap
-MapStyles.openFreeMapLiberty  // OpenFreeMap Liberty (без ключа)
-MapStyles.cartoPositron       // CARTO Positron (без ключа)
+MapStyles.openFreeMapLiberty  // OpenFreeMap Liberty (no key)
+MapStyles.cartoPositron       // CARTO Positron (no key)
 MapStyles.custom('https://tiles.example.com')
 ```
 
-## Архитектура
+## Architecture
 
 ```
 qorvia_maps_sdk/
 ├── lib/
-│   ├── qorvia_maps_sdk.dart          # Публичные экспорты
+│   ├── qorvia_maps_sdk.dart          # Public exports
 │   └── src/
-│       ├── sdk_initializer.dart      # QorviaMapsSDK синглтон
-│       ├── client/                   # API-клиент
+│       ├── sdk_initializer.dart      # QorviaMapsSDK singleton
+│       ├── client/                   # API client
 │       │   ├── qorvia_maps_client.dart
 │       │   └── http_client.dart
-│       ├── config/                   # Конфигурация
+│       ├── config/                   # Configuration
 │       │   ├── sdk_config.dart
 │       │   └── transport_mode.dart
-│       ├── map/                      # Виджеты карты
+│       ├── map/                      # Map widgets
 │       │   ├── qorvia_map_view.dart
 │       │   ├── qorvia_map_controller.dart
 │       │   ├── map_options.dart
 │       │   └── camera/
-│       ├── markers/                  # Система маркеров
+│       ├── markers/                  # Marker system
 │       │   ├── marker.dart
 │       │   ├── marker_icon.dart
 │       │   ├── marker_widget.dart
 │       │   └── cluster/
-│       ├── navigation/               # Навигация
+│       ├── navigation/               # Navigation
 │       │   ├── navigation_view.dart
 │       │   ├── navigation_controller.dart
 │       │   ├── navigation_options.dart
 │       │   ├── navigation_state.dart
-│       │   ├── ui/                   # UI-компоненты
-│       │   └── voice/                # Голосовые подсказки
-│       ├── location/                 # Сервисы геолокации
+│       │   ├── ui/                   # UI components
+│       │   └── voice/                # TTS guidance
+│       ├── location/                 # Location services
 │       │   ├── location_service.dart
 │       │   ├── location_data.dart
 │       │   ├── location_filter.dart
 │       │   └── location_settings.dart
-│       ├── models/                   # Модели данных
+│       ├── models/                   # Data models
 │       │   ├── coordinates.dart
 │       │   ├── route/
 │       │   ├── geocode/
 │       │   └── reverse/
-│       ├── services/                 # API-сервисы
+│       ├── services/                 # API services
 │       │   ├── routing_service.dart
 │       │   ├── geocoding_service.dart
 │       │   └── reverse_service.dart
-│       ├── route_display/            # Рендеринг маршрута
-│       └── utils/                    # Утилиты
+│       ├── route_display/            # Route rendering
+│       └── utils/                    # Utilities
 ```
 
-## Зависимости
+## Dependencies
 
-| Пакет | Назначение |
-|-------|------------|
-| `maplibre_gl` | Рендеринг карты |
-| `dio` | HTTP-клиент |
-| `geolocator` | GPS-геолокация |
-| `permission_handler` | Управление разрешениями |
-| `flutter_compass` | Компас |
-| `flutter_tts` | Голосовые подсказки |
-| `flutter_svg` | SVG-иконки маркеров |
-| `equatable` | Сравнение по значению |
-| `freezed_annotation` | Иммутабельные модели |
+| Package | Purpose |
+|---------|---------|
+| `maplibre_gl` | Map rendering |
+| `dio` | HTTP client |
+| `geolocator` | GPS location |
+| `permission_handler` | Permission management |
+| `flutter_compass` | Compass heading |
+| `flutter_tts` | Voice guidance |
+| `flutter_svg` | SVG marker icons |
+| `equatable` | Value equality |
+| `freezed_annotation` | Immutable models |
 
-## Пример
+## Example App
 
-Смотрите директорию `example/` с демо-приложением.
+See the `example/` directory for a complete demo application.
 
 ```bash
 cd example
 flutter run
 ```
 
-## Лицензия
+## License
 
-MIT License. Подробнее в [LICENSE](LICENSE).
+MIT License. See [LICENSE](LICENSE) for details.

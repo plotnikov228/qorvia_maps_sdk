@@ -80,10 +80,18 @@ class CompactEtaPanel extends StatelessWidget {
   final NavigationState state;
   final VoidCallback? onTap;
 
+  /// Primary color for active route portion.
+  final Color activeColor;
+
+  /// Color for traveled route portion.
+  final Color traveledColor;
+
   const CompactEtaPanel({
     super.key,
     required this.state,
     this.onTap,
+    this.activeColor = const Color(0xFF2979FF),
+    this.traveledColor = const Color(0xFFBDBDBD),
   });
 
   @override
@@ -105,6 +113,15 @@ class CompactEtaPanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Route progress track
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _RouteProgressTrack(
+                progress: state.progress,
+                activeColor: activeColor,
+                traveledColor: traveledColor,
+              ),
+            ),
             // Multi-waypoint progress indicator
             if (state.isMultiWaypoint)
               Padding(
@@ -158,6 +175,107 @@ class CompactEtaPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Route progress track with arrow cursor.
+class _RouteProgressTrack extends StatelessWidget {
+  final double progress;
+  final Color activeColor;
+  final Color traveledColor;
+
+  const _RouteProgressTrack({
+    required this.progress,
+    required this.activeColor,
+    required this.traveledColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 24,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final trackWidth = constraints.maxWidth;
+          final cursorPosition = trackWidth * progress.clamp(0.0, 1.0);
+
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Track background (active/remaining portion)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 10,
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: activeColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Traveled portion overlay
+              Positioned(
+                left: 0,
+                top: 10,
+                child: Container(
+                  width: cursorPosition,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: traveledColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(2),
+                      bottomLeft: Radius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+              // Arrow cursor
+              Positioned(
+                left: cursorPosition - 8,
+                top: 0,
+                child: CustomPaint(
+                  size: const Size(16, 24),
+                  painter: _ArrowCursorPainter(color: activeColor),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Custom painter for arrow-shaped cursor.
+class _ArrowCursorPainter extends CustomPainter {
+  final Color color;
+
+  _ArrowCursorPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    // Arrow pointing right (direction of travel)
+    final path = Path()
+      ..moveTo(0, size.height * 0.3)
+      ..lineTo(size.width * 0.6, size.height * 0.3)
+      ..lineTo(size.width * 0.6, 0)
+      ..lineTo(size.width, size.height * 0.5)
+      ..lineTo(size.width * 0.6, size.height)
+      ..lineTo(size.width * 0.6, size.height * 0.7)
+      ..lineTo(0, size.height * 0.7)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_ArrowCursorPainter oldDelegate) =>
+      color != oldDelegate.color;
 }
 
 class _ExitButton extends StatelessWidget {
