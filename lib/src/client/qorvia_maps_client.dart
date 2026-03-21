@@ -335,7 +335,21 @@ class QorviaMapsClient {
 
   /// Gets the full tile URL response including metadata.
   ///
-  /// Returns [TileUrlResponse] with style URL and request ID.
+  /// Returns [TileUrlResponse] with style URLs and metadata.
+  ///
+  /// When `autoTheme: false`, response includes:
+  /// - `tileUrl` - day theme URL
+  /// - `nightTileUrl` - night theme URL (may be null if unavailable)
+  /// - `isNightMode` - server's recommendation for theme
+  /// - `isStyleJson` - whether the URL points to style.json
+  ///
+  /// Example:
+  /// ```dart
+  /// final response = await client.tileUrlResponse();
+  /// print('Day URL: ${response.tileUrl}');
+  /// print('Night URL: ${response.nightTileUrl ?? "not available"}');
+  /// print('Server recommends night: ${response.isNightMode}');
+  /// ```
   Future<TileUrlResponse> tileUrlResponse() {
     return _tile.getTileUrl();
   }

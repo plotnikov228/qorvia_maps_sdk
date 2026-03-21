@@ -181,10 +181,6 @@ class VoiceGuidance {
   /// Call this when step changes in NavigationController.
   void updateCurrentStepIndex(int stepIndex) {
     if (stepIndex != _currentStepIndex) {
-      NavigationLogger.debug('VoiceGuidance', 'updateCurrentStepIndex', {
-        'previousStep': _currentStepIndex,
-        'newStep': stepIndex,
-      });
       _currentStepIndex = stepIndex;
     }
   }
@@ -225,10 +221,6 @@ class VoiceGuidance {
 
       // Set up completion handler for queue processing
       _tts.setCompletionHandler(() {
-        NavigationLogger.debug('VoiceGuidance', 'TTS completion callback', {
-          'itemId': _currentItemId,
-          'queueSize': _queue.length,
-        });
         _isPlaying = false;
         _currentItemId = null;
         // Process next item in queue
@@ -249,9 +241,6 @@ class VoiceGuidance {
 
       // Set up cancel handler (when stop() is called)
       _tts.setCancelHandler(() {
-        NavigationLogger.debug('VoiceGuidance', 'TTS cancel callback', {
-          'itemId': _currentItemId,
-        });
         _isPlaying = false;
         _currentItemId = null;
         // Don't auto-process queue after cancel - let caller decide
@@ -339,9 +328,6 @@ class VoiceGuidance {
 
     // Prevent duplicate short instructions for the same step
     if (_lastShortSpokenStepIndex == stepIndex) {
-      NavigationLogger.debug('VoiceGuidance', 'speakShortInstruction skipped - already spoken', {
-        'stepIndex': stepIndex,
-      });
       return false;
     }
 
@@ -380,10 +366,6 @@ class VoiceGuidance {
     // 1. STEP_TRANSITION call (when stepJustChanged) - announces new step immediately
     // 2. UPCOMING threshold call (when approaching maneuver) - should NOT repeat if #1 already spoke
     if (_lastUpcomingSpokenStepIndex == stepIndex) {
-      NavigationLogger.debug('VoiceGuidance', 'speakUpcomingStep skipped - deduplication', {
-        'stepIndex': stepIndex,
-        'lastUpcomingSpokenStepIndex': _lastUpcomingSpokenStepIndex,
-      });
       return false;
     }
 
@@ -405,9 +387,6 @@ class VoiceGuidance {
 
     // Also speak next maneuver hint if available (e.g., "а затем через 50 метров направо")
     if (step.nextManeuverHint != null) {
-      NavigationLogger.debug('VoiceGuidance', 'speakUpcomingStep enqueueing nextManeuverHint', {
-        'stepIndex': stepIndex,
-      });
       _enqueue(step.nextManeuverHint!, VoicePriority.normal, stepIndex: stepIndex);
     }
 
@@ -667,11 +646,6 @@ class VoiceGuidance {
     } else {
       // Normal priority - add to end of queue
       _queue.add(item);
-      NavigationLogger.debug('VoiceGuidance', '_enqueue added item', {
-        'itemId': item.id,
-        'stepIndex': stepIndex,
-        'queueSize': _queue.length,
-      });
     }
 
     // Handle queue overflow
@@ -730,11 +704,6 @@ class VoiceGuidance {
       // Skip items that belong to old steps
       // High priority items (arrival, off-route) have stepIndex=null and are never skipped
       if (nextItem.stepIndex != null && nextItem.stepIndex! < _currentStepIndex) {
-        NavigationLogger.debug('VoiceGuidance', '_processQueue SKIPPING stale item', {
-          'itemId': nextItem.id,
-          'itemStep': nextItem.stepIndex,
-          'currentStep': _currentStepIndex,
-        });
         _queue.removeAt(0);
         continue;
       }
@@ -742,7 +711,6 @@ class VoiceGuidance {
     }
 
     if (_queue.isEmpty) {
-      NavigationLogger.debug('VoiceGuidance', '_processQueue empty, stopping');
       _isPlaying = false;
       _isProcessing = false;
       return;
@@ -753,13 +721,6 @@ class VoiceGuidance {
     final item = _queue.removeAt(0);
     _currentItemId = item.id;
     _isPlaying = true;
-
-    NavigationLogger.debug('VoiceGuidance', '_processQueue playing', {
-      'itemId': item.id,
-      'stepIndex': item.stepIndex,
-      'currentStep': _currentStepIndex,
-      'remainingQueue': _queue.length,
-    });
 
     _speakDirect(item.text).then((_) {
       _isProcessing = false;
@@ -778,14 +739,8 @@ class VoiceGuidance {
   /// Used internally by _processQueue().
   Future<void> _speakDirect(String text) async {
     try {
-      NavigationLogger.debug('VoiceGuidance', '_speakDirect', {
-        'textPreview': text.length > 50 ? '${text.substring(0, 50)}...' : text,
-      });
       // NO stop() call here - let the queue manage playback
-      final result = await _tts.speak(text);
-      NavigationLogger.debug('VoiceGuidance', '_speakDirect result', {
-        'result': result,
-      });
+      await _tts.speak(text);
     } catch (error, stack) {
       NavigationLogger.error('VoiceGuidance', '_speakDirect failed', error, stack);
       rethrow;

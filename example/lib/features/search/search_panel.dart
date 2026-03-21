@@ -7,6 +7,8 @@ import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/localization/app_localizations.dart';
+import '../../shared/services/offline_geocoding_helper.dart';
 import 'models/selected_point.dart';
 import 'models/travel_mode.dart';
 import 'widgets/action_button.dart';
@@ -102,9 +104,6 @@ class _SearchPanelState extends State<SearchPanel>
   TravelMode _travelMode = TravelMode.car;
   bool _isSearching = false;
   Timer? _searchDebounce;
-
-  QorviaMapsClient? get _client =>
-      QorviaMapsSDK.isInitialized ? QorviaMapsSDK.instance.client : null;
 
   @override
   void initState() {
@@ -289,8 +288,7 @@ class _SearchPanelState extends State<SearchPanel>
   }
 
   Future<void> _searchAddress() async {
-    final client = _client;
-    if (client == null) {
+    if (!QorviaMapsSDK.isInitialized) {
       _log('SDK not initialized', {'level': 'WARN'});
       return;
     }
@@ -302,13 +300,15 @@ class _SearchPanelState extends State<SearchPanel>
     setState(() => _isSearching = true);
 
     try {
-      final response = await client.geocode(
+      // Use system language for search results (offline-first)
+      final locale = Localizations.localeOf(context);
+      final response = await OfflineGeocodingHelper.geocode(
         query: query,
         limit: 6,
-        language: 'ru',
+        language: locale.languageCode,
       );
-      _log('Search results', {'count': response.results.length});
-      setState(() => _results = response.results);
+      _log('Search results', {'count': response?.results.length ?? 0});
+      setState(() => _results = response?.results ?? []);
     } catch (error) {
       _log('Search error', {'error': error.toString(), 'level': 'ERROR'});
     } finally {
@@ -390,6 +390,7 @@ class _SearchPanelState extends State<SearchPanel>
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final l10n = AppLocalizations.of(context);
 
     // Log state changes for debugging
     _log('Build', {
@@ -400,7 +401,7 @@ class _SearchPanelState extends State<SearchPanel>
 
     // Collapsed mode: only show "From" field with expand hint
     if (widget.isCollapsed && !_isSearchFocused) {
-      return _buildCollapsedContent(bottomPadding);
+      return _buildCollapsedContent(bottomPadding, l10n);
     }
 
     final content = Padding(
@@ -411,7 +412,7 @@ class _SearchPanelState extends State<SearchPanel>
             // From field - show when not focused or when it's the active field
             if (!_isSearchFocused || _activeField == ActiveField.from)
               SearchField(
-                label: 'Откуда',
+                label: l10n.from,
                 controller: _fromController,
                 focusNode: _fromFocus,
                 prefixIcon: Icons.trip_origin,
@@ -430,19 +431,19 @@ class _SearchPanelState extends State<SearchPanel>
               if (!_isSearchFocused)
                 for (int i = 0; i < _waypoints.length; i++) ...[
                   const SizedBox(height: 8),
-                  _buildWaypointField(index: i),
+                  _buildWaypointField(index: i, l10n: l10n),
                 ]
               else if (_activeField == ActiveField.waypoint &&
                   _activeWaypointIndex != null) ...[
                 const SizedBox(height: 8),
-                _buildWaypointField(index: _activeWaypointIndex!),
+                _buildWaypointField(index: _activeWaypointIndex!, l10n: l10n),
               ],
 
               // Add waypoint button - hide when focused
               if (!_isSearchFocused &&
                   _waypoints.length < widget.maxWaypoints) ...[
                 const SizedBox(height: 8),
-                _buildAddWaypointButton(),
+                _buildAddWaypointButton(l10n),
               ],
             ],
 
@@ -450,7 +451,7 @@ class _SearchPanelState extends State<SearchPanel>
             if (!_isSearchFocused || _activeField == ActiveField.to) ...[
               const SizedBox(height: 12),
               SearchField(
-                label: 'Куда',
+                label: l10n.to,
                 controller: _toController,
                 focusNode: _toFocus,
                 prefixIcon: Icons.location_on,
@@ -482,7 +483,7 @@ class _SearchPanelState extends State<SearchPanel>
                   Expanded(
                     child: ActionButton(
                       icon: widget.isLocating ? null : Icons.my_location,
-                      label: 'Моё место',
+                      label: l10n.myLocation,
                       isLoading: widget.isLocating,
                       onTap: widget.isLocating ? null : widget.onMyLocation,
                       isPrimary: true,
@@ -492,7 +493,7 @@ class _SearchPanelState extends State<SearchPanel>
                   Expanded(
                     child: ActionButton(
                       icon: Icons.refresh_rounded,
-                      label: 'Сбросить',
+                      label: l10n.reset,
                       onTap: _onReset,
                       isPrimary: false,
                     ),
@@ -563,7 +564,7 @@ class _SearchPanelState extends State<SearchPanel>
   }
 
   /// Builds the collapsed view showing only "From" field with expand hint.
-  Widget _buildCollapsedContent(double bottomPadding) {
+  Widget _buildCollapsedContent(double bottomPadding, AppLocalizations l10n) {
     _log('Building collapsed content');
 
     final content = Padding(
@@ -573,7 +574,7 @@ class _SearchPanelState extends State<SearchPanel>
         children: [
           // From field - always visible and active in collapsed mode
           SearchField(
-            label: 'Откуда',
+            label: l10n.from,
             controller: _fromController,
             focusNode: _fromFocus,
             prefixIcon: Icons.trip_origin,
@@ -615,7 +616,7 @@ class _SearchPanelState extends State<SearchPanel>
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Куда едем?',
+                    l10n.whereToGo,
                     style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 14,
@@ -685,7 +686,7 @@ class _SearchPanelState extends State<SearchPanel>
     );
   }
 
-  Widget _buildWaypointField({required int index}) {
+  Widget _buildWaypointField({required int index, required AppLocalizations l10n}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -733,7 +734,7 @@ class _SearchPanelState extends State<SearchPanel>
               },
               onSubmitted: (_) => _searchAddress(),
               decoration: InputDecoration(
-                hintText: 'Через точку ${index + 1}',
+                hintText: '${l10n.viaPoint} ${index + 1}',
                 border: InputBorder.none,
                 isDense: true,
               ),
@@ -744,7 +745,7 @@ class _SearchPanelState extends State<SearchPanel>
                 widget.onMapSelect?.call(ActiveField.waypoint, index),
             icon: const Icon(Icons.place_outlined, size: 20),
             visualDensity: VisualDensity.compact,
-            tooltip: 'Выбрать на карте',
+            tooltip: l10n.selectOnMap,
             color: AppColors.primary,
           ),
           IconButton(
@@ -752,14 +753,14 @@ class _SearchPanelState extends State<SearchPanel>
             icon: const Icon(Icons.close, size: 20),
             visualDensity: VisualDensity.compact,
             color: AppColors.outline,
-            tooltip: 'Удалить',
+            tooltip: l10n.delete,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAddWaypointButton() {
+  Widget _buildAddWaypointButton(AppLocalizations l10n) {
     return Center(
       child: TextButton.icon(
         onPressed: _addWaypoint,
@@ -769,7 +770,7 @@ class _SearchPanelState extends State<SearchPanel>
           color: AppColors.primary,
         ),
         label: Text(
-          'Добавить точку',
+          l10n.addPoint,
           style: TextStyle(color: AppColors.primary),
         ),
       ),

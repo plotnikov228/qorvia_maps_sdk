@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/theme/app_colors.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// Modern navigation button with pulse animation and gradient.
 class NavigationButton extends StatefulWidget {
@@ -166,14 +167,19 @@ class _NavigationButtonState extends State<NavigationButton>
                     children: [
                       _buildLeadingWidget(),
                       const SizedBox(width: 10),
-                      Text(
-                        widget.isLoading ? 'Загрузка...' : 'Поехали',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          letterSpacing: 0.5,
-                        ),
+                      Builder(
+                        builder: (context) {
+                          final l10n = AppLocalizations.of(context);
+                          return Text(
+                            widget.isLoading ? l10n.loading : l10n.letsGo,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              letterSpacing: 0.5,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

@@ -158,6 +158,11 @@ class _QorviaMapViewState extends State<QorviaMapView> {
   bool _isUpdatingMarkers = false;
   int _markersUpdateGeneration = 0;
 
+  // Track route IDs that are managed by the widget (passed via routeLines prop).
+  // Routes added directly via controller are NOT tracked here and won't be
+  // affected by widget route updates.
+  final Set<String> _widgetManagedRouteIds = {};
+
   // Auto tile URL loading state
   String? _resolvedStyleUrl;
   bool _styleUrlLoading = false;
@@ -458,6 +463,12 @@ class _QorviaMapViewState extends State<QorviaMapView> {
       if (kDebugMode && widget.enableLogging) {
         debugPrint('[QorviaMapView._updateMarkers] COMPLETE: ${stopwatch.elapsedMilliseconds}ms');
       }
+
+      // Configure icon rotation alignment to 'map' so markers rotate with the map
+      // (point north regardless of camera rotation). Do this once after first marker add.
+      if (!_controller.isIconRotationAlignmentConfigured && markersToRender.isNotEmpty) {
+        await _controller.setIconRotationAlignment('map');
+      }
     } finally {
       _isUpdatingMarkers = false;
 
@@ -482,12 +493,28 @@ class _QorviaMapViewState extends State<QorviaMapView> {
     return false;
   }
 
+  /// Updates route lines using diff-based approach.
+  /// Only manages routes that are passed via widget.routeLines.
+  /// Routes added directly via controller are NOT affected.
   Future<void> _updateRouteLines() async {
-    await _controller.clearRoutes();
+    // Build set of new route IDs from widget
+    final newRouteIds = widget.routeLines.map((r) => r.id).toSet();
 
+    // Remove routes that were widget-managed but are no longer in the list
+    final toRemove = _widgetManagedRouteIds.difference(newRouteIds);
+    for (final routeId in toRemove) {
+      await _controller.removeRoute(routeId);
+    }
+
+    // Add/update routes from widget
     for (final routeLine in widget.routeLines) {
       await _controller.displayRouteLine(routeLine);
     }
+
+    // Update tracking set
+    _widgetManagedRouteIds
+      ..clear()
+      ..addAll(newRouteIds);
   }
 
   void _onMapCreated(MaplibreMapController controller) {
@@ -495,6 +522,9 @@ class _QorviaMapViewState extends State<QorviaMapView> {
     _controller.setMapController(controller);
     controller.onSymbolTapped.add(_onSymbolTapped);
     controller.addListener(_onMapControllerChanged);
+
+    // Clear widget-managed route tracking (previous routes are gone)
+    _widgetManagedRouteIds.clear();
 
     // Notify callback
     widget.onMapCreated?.call(_controller);
@@ -508,6 +538,8 @@ class _QorviaMapViewState extends State<QorviaMapView> {
     _styleLoaded = true;
     _styleTimeoutTimer?.cancel();
     _updateMarkers();
+    // Clear tracking before updating routes on style load (style change clears all routes)
+    _widgetManagedRouteIds.clear();
     _updateRouteLines();
     _initUserLocationLayer();
 
@@ -576,7 +608,7 @@ class _QorviaMapViewState extends State<QorviaMapView> {
       },
     );
 
-    // Also update immediately with last known location if available
+    // Update immediately with last known location or fetch current position
     final lastLocation = locationService.lastLocation;
     if (lastLocation != null) {
       _log('User location: using last known location', {
@@ -588,6 +620,23 @@ class _QorviaMapViewState extends State<QorviaMapView> {
         lastLocation.heading ?? 0,
         accuracy: lastLocation.accuracy,
       );
+    } else {
+      // No cached location - actively fetch current position
+      _log('User location: no cached location, fetching current position');
+      final currentLocation = await locationService.getCurrentLocation();
+      if (currentLocation != null) {
+        _log('User location: got current position', {
+          'lat': currentLocation.coordinates.lat,
+          'lon': currentLocation.coordinates.lon,
+        });
+        _userLocationLayer?.update(
+          currentLocation.coordinates,
+          currentLocation.heading ?? 0,
+          accuracy: currentLocation.accuracy,
+        );
+      } else {
+        _log('User location: failed to get current position, marker will appear on first stream update');
+      }
     }
   }
 
@@ -1168,6 +1217,7 @@ class _QorviaMapViewState extends State<QorviaMapView> {
     _zoomNotifier.dispose();
     _bearingNotifier.dispose();
     _metersPerPixelNotifier.dispose();
+    _widgetManagedRouteIds.clear();
     if (widget.controller == null) {
       _controller.dispose();
     }

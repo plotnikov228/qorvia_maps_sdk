@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart';
 
+import '../../../core/localization/app_localizations.dart';
+
 /// Travel mode options for routing.
 enum TravelMode {
   car,
@@ -32,14 +34,28 @@ enum TravelMode {
   }
 
   /// Returns the localized name for this travel mode.
+  /// Use [localizedName] with context for proper localization.
   String get displayName {
     switch (this) {
       case TravelMode.car:
-        return 'Авто';
+        return 'Car';
       case TravelMode.foot:
-        return 'Пешком';
+        return 'Walk';
       case TravelMode.bike:
-        return 'Вело';
+        return 'Bike';
+    }
+  }
+
+  /// Returns the localized name for this travel mode using context.
+  String localizedName(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    switch (this) {
+      case TravelMode.car:
+        return l10n.car;
+      case TravelMode.foot:
+        return l10n.foot;
+      case TravelMode.bike:
+        return l10n.bike;
     }
   }
 }

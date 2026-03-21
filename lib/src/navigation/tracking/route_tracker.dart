@@ -116,15 +116,6 @@ class RouteTracker {
     // 8. Route bearing at current segment
     final routeBearing = _routeBearingAt(_closestSegmentIndex);
 
-    NavigationLogger.debug('RouteTracker', 'Update', {
-      'step': _currentStepIndex,
-      'leg': _currentLegIndex,
-      'seg': _closestSegmentIndex,
-      'offRoute': _distanceFromRoute,
-      'snapped': _isSnapped,
-      'remaining': distanceRemaining.round(),
-    });
-
     return RouteProgress(
       effectivePosition: effectivePosition,
       snappedPosition: _snappedPosition!,
@@ -166,15 +157,9 @@ class RouteTracker {
     if (!_isSnapped && distance <= options.snapToRouteThreshold) {
       _isSnapped = true;
       _lastSnapChange = now;
-      NavigationLogger.debug('RouteTracker', 'Snap entered', {
-        'distance': distance,
-      });
     } else if (_isSnapped && distance > options.snapExitThreshold) {
       _isSnapped = false;
       _lastSnapChange = now;
-      NavigationLogger.debug('RouteTracker', 'Snap exited', {
-        'distance': distance,
-      });
     }
   }
 

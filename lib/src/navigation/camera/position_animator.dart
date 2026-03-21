@@ -194,12 +194,6 @@ class PositionAnimator {
 
     // Check route transition
     _checkRouteTransition();
-
-    NavigationLogger.debug('PositionAnimator', 'GPS fed', {
-      'points': _controlPoints.length,
-      'speed': _currentSpeed.toStringAsFixed(1),
-      'routeState': _routeState.name,
-    });
   }
 
   /// Starts the 60fps animation loop.

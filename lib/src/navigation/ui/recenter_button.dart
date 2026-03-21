@@ -6,10 +6,18 @@ class RecenterButton extends StatelessWidget {
   final CameraTrackingMode currentMode;
   final VoidCallback onPressed;
 
+  /// Background color for the button.
+  final Color backgroundColor;
+
+  /// Icon color for the button.
+  final Color iconColor;
+
   const RecenterButton({
     super.key,
     required this.currentMode,
     required this.onPressed,
+    this.backgroundColor = Colors.white,
+    this.iconColor = const Color(0xFF2196F3), // Colors.blue
   });
 
   @override
@@ -22,7 +30,7 @@ class RecenterButton extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: backgroundColor,
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
@@ -35,7 +43,7 @@ class RecenterButton extends StatelessWidget {
       child: IconButton(
         onPressed: onPressed,
         icon: const Icon(Icons.my_location),
-        color: Colors.blue,
+        color: iconColor,
         iconSize: 24,
         padding: const EdgeInsets.all(12),
       ),

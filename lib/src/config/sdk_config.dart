@@ -41,7 +41,21 @@ class SdkConfig {
 
   /// Whether to send time headers (X-Local-Time, X-Timezone-Offset, X-Is-Daytime).
   /// These headers enable automatic theme switching on the server side.
+  /// Only sent when [autoTheme] is true.
   final bool sendTimeHeaders;
+
+  /// Whether to automatically select map theme based on time of day.
+  ///
+  /// When `true` (default): Time headers are sent and server returns
+  /// the appropriate style URL (day or night) in `tile_url`.
+  ///
+  /// When `false`: Time headers are NOT sent. Server returns both URLs:
+  /// - `tile_url` - day style URL
+  /// - `night_tile_url` - night style URL (may be null if unavailable)
+  /// - `is_night_mode` - server's recommendation based on location/time
+  ///
+  /// Use `autoTheme: false` when you need manual control over theme switching.
+  final bool autoTheme;
 
   /// Configuration for offline mode.
   ///
@@ -65,6 +79,7 @@ class SdkConfig {
     this.routeSmoothingPointsPerCorner = 5,
     this.polylinePrecision = 1e5,
     this.sendTimeHeaders = true,
+    this.autoTheme = true,
     this.offlineConfig,
   });
 
@@ -81,6 +96,7 @@ class SdkConfig {
     int? routeSmoothingPointsPerCorner,
     double? polylinePrecision,
     bool? sendTimeHeaders,
+    bool? autoTheme,
     OfflineConfig? offlineConfig,
   }) {
     return SdkConfig(
@@ -100,6 +116,7 @@ class SdkConfig {
           routeSmoothingPointsPerCorner ?? this.routeSmoothingPointsPerCorner,
       polylinePrecision: polylinePrecision ?? this.polylinePrecision,
       sendTimeHeaders: sendTimeHeaders ?? this.sendTimeHeaders,
+      autoTheme: autoTheme ?? this.autoTheme,
       offlineConfig: offlineConfig ?? this.offlineConfig,
     );
   }

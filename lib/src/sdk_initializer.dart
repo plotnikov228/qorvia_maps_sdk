@@ -9,8 +9,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
 import 'client/qorvia_maps_client.dart';
+import 'config/sdk_config.dart';
 import 'exceptions/qorvia_maps_exception.dart';
 import 'config/transport_mode.dart';
+import 'models/tile/tile_url_response.dart';
 import 'map/map_options.dart';
 import 'models/coordinates.dart';
 import 'models/geocode/geocode_response.dart';
@@ -55,6 +57,7 @@ class QorviaMapsSDK {
 
   static QorviaMapsSDK? _instance;
   static bool _enableLogging = false;
+  static bool _autoTheme = true;
   static OfflineConfig? _offlineConfig;
 
   /// Returns the singleton instance of [QorviaMapsSDK].
@@ -83,6 +86,7 @@ class QorviaMapsSDK {
   OfflineGeocodingService? _offlineGeocodingService;
   OfflinePackageManager? _offlinePackageManager;
   String? _cachedTileUrl;
+  TileUrlResponse? _cachedTileUrlResponse;
   bool _tileUrlLoading = false;
   List<void Function(String?)>? _tileUrlWaiters;
 
@@ -138,6 +142,68 @@ class QorviaMapsSDK {
   /// The cached tile URL, or null if not yet loaded.
   String? get tileUrlOrNull => _cachedTileUrl;
 
+  /// Whether automatic theme selection is enabled.
+  static bool get autoTheme => _autoTheme;
+
+  // ==================== THEME API (when autoTheme=false) ====================
+
+  /// The cached full tile URL response, or null if not yet loaded.
+  ///
+  /// Contains both day and night URLs when `autoTheme: false`.
+  TileUrlResponse? get cachedTileUrlResponse => _cachedTileUrlResponse;
+
+  /// The day theme tile URL.
+  ///
+  /// This is the same as [tileUrlOrNull] but more explicit when using
+  /// manual theme control (`autoTheme: false`).
+  ///
+  /// Returns null if tile URL hasn't been fetched yet.
+  String? get dayTileUrl => _cachedTileUrl;
+
+  /// The night theme tile URL.
+  ///
+  /// Only available when `autoTheme: false` and server provides night theme.
+  /// Returns null if:
+  /// - Tile URL hasn't been fetched yet
+  /// - Server doesn't provide night theme for this configuration
+  /// - `autoTheme: true` (server already selected the appropriate theme)
+  ///
+  /// Example:
+  /// ```dart
+  /// final nightUrl = QorviaMapsSDK.instance.nightTileUrl;
+  /// if (nightUrl != null) {
+  ///   // Apply night theme
+  ///   mapController.setStyleUrl(nightUrl);
+  /// }
+  /// ```
+  String? get nightTileUrl => _cachedTileUrlResponse?.nightTileUrl;
+
+  /// Server's recommendation for whether to use night mode.
+  ///
+  /// Based on user's timezone and local time.
+  /// Only available when `autoTheme: false`.
+  ///
+  /// Returns null if:
+  /// - Tile URL hasn't been fetched yet
+  /// - `autoTheme: true` (server already applied the recommendation)
+  ///
+  /// Example:
+  /// ```dart
+  /// final useNight = QorviaMapsSDK.instance.isNightModeRecommended ?? false;
+  /// final url = useNight
+  ///     ? QorviaMapsSDK.instance.nightTileUrl ?? QorviaMapsSDK.instance.dayTileUrl
+  ///     : QorviaMapsSDK.instance.dayTileUrl;
+  /// ```
+  bool? get isNightModeRecommended => _cachedTileUrlResponse?.isNightMode;
+
+  /// Whether night theme is available.
+  ///
+  /// Returns false if:
+  /// - Tile URL hasn't been fetched yet
+  /// - Server doesn't provide night theme
+  /// - `autoTheme: true`
+  bool get hasNightTheme => _cachedTileUrlResponse?.hasNightTheme ?? false;
+
   /// Initializes the SDK with the given configuration.
   ///
   /// This should be called once at app startup, typically in `main()`.
@@ -149,20 +215,29 @@ class QorviaMapsSDK {
   /// [offlineConfig] - Optional configuration for offline mode.
   /// [validateApiKey] - Whether to validate API key on init (default: true).
   ///   If true and key is invalid, throws [AuthException].
+  /// [autoTheme] - Whether to automatically select theme based on time (default: true).
+  ///   When `true`: Server returns single URL based on time of day.
+  ///   When `false`: Server returns both day and night URLs for manual switching.
   ///
   /// Throws [AuthException] if [validateApiKey] is true and the API key is invalid.
   ///
-  /// Example:
+  /// Example with auto theme (default):
   /// ```dart
   /// await QorviaMapsSDK.init(
   ///   apiKey: 'geoapi_live_xxx',
-  ///   baseUrl: 'https://api.basemaps.com',
-  ///   enableLogging: true,
-  ///   offlineConfig: OfflineConfig(
-  ///     enabled: true,
-  ///     geocodeTtl: Duration(hours: 48),
-  ///   ),
+  ///   autoTheme: true, // default - server picks theme
   /// );
+  /// final url = await QorviaMapsSDK.instance.getTileUrl();
+  /// ```
+  ///
+  /// Example with manual theme control:
+  /// ```dart
+  /// await QorviaMapsSDK.init(
+  ///   apiKey: 'geoapi_live_xxx',
+  ///   autoTheme: false, // get both URLs
+  /// );
+  /// final dayUrl = QorviaMapsSDK.instance.dayTileUrl;
+  /// final nightUrl = QorviaMapsSDK.instance.nightTileUrl; // may be null
   /// ```
   static Future<void> init({
     required String apiKey,
@@ -171,8 +246,10 @@ class QorviaMapsSDK {
     bool prefetchTileUrl = true,
     OfflineConfig? offlineConfig,
     bool validateApiKey = true,
+    bool autoTheme = true,
   }) async {
     _enableLogging = enableLogging;
+    _autoTheme = autoTheme;
     _offlineConfig = offlineConfig;
 
     _log('init() called', {
@@ -181,6 +258,7 @@ class QorviaMapsSDK {
       'prefetchTileUrl': prefetchTileUrl,
       'offlineEnabled': offlineConfig?.enabled ?? false,
       'validateApiKey': validateApiKey,
+      'autoTheme': autoTheme,
     });
 
     // Create or update instance
@@ -190,13 +268,16 @@ class QorviaMapsSDK {
     _instance!._client?.dispose();
     _instance!._offlineClient?.dispose();
     _instance!._cachedTileUrl = null;
+    _instance!._cachedTileUrlResponse = null;
 
-    // Create new client
-    _instance!._client = QorviaMapsClient(
+    // Create new client with autoTheme config
+    final config = SdkConfig(
       apiKey: apiKey,
-      baseUrl: baseUrl,
+      baseUrl: baseUrl ?? 'https://qorviamapkit.ru',
       enableLogging: enableLogging,
+      autoTheme: autoTheme,
     );
+    _instance!._client = QorviaMapsClient.fromConfig(config);
 
     // Validate API key by calling quota endpoint
     if (validateApiKey) {
@@ -333,23 +414,30 @@ class QorviaMapsSDK {
 
   Future<String> _fetchTileUrl() async {
     _tileUrlLoading = true;
-    _log('Fetching tile URL from server...');
+    _log('Fetching tile URL from server...', {'autoTheme': _autoTheme});
 
     try {
-      final url = await _client!.tileUrl();
-      _cachedTileUrl = url;
+      // Get full response to cache both day and night URLs
+      final response = await _client!.tileUrlResponse();
+      _cachedTileUrlResponse = response;
+      _cachedTileUrl = response.tileUrl;
       _tileUrlLoading = false;
       _isOfflineMode = false;
 
-      _log('Tile URL fetched successfully', {'url': url});
+      _log('Tile URL fetched successfully', {
+        'tileUrl': response.tileUrl,
+        'nightTileUrl': response.nightTileUrl ?? 'null',
+        'isNightMode': response.isNightMode,
+        'autoTheme': _autoTheme,
+      });
 
       // Cache the style JSON for offline use (do not await - background operation)
-      _cacheStyleJson(url);
+      _cacheStyleJson(response.tileUrl);
 
       // Notify waiters
-      _notifyWaiters(url);
+      _notifyWaiters(response.tileUrl);
 
-      return url;
+      return response.tileUrl;
     } catch (e) {
       _tileUrlLoading = false;
       _log('Failed to fetch tile URL', {'error': e.toString()}, true);
@@ -630,6 +718,7 @@ class QorviaMapsSDK {
   void clearTileUrlCache() {
     _log('Clearing tile URL cache');
     _cachedTileUrl = null;
+    _cachedTileUrlResponse = null;
   }
 
   /// Disposes the SDK and releases resources.
@@ -655,6 +744,8 @@ class QorviaMapsSDK {
     _instance?._client?.dispose();
     _instance?._client = null;
     _instance?._cachedTileUrl = null;
+    _instance?._cachedTileUrlResponse = null;
+    _autoTheme = true;
     _offlineConfig = null;
     ConnectivityService.resetInstance();
     _instance = null;
@@ -769,6 +860,7 @@ class QorviaMapsSDK {
       throw StateError('QorviaMapsSDK is not initialized');
     }
     _instance!._cachedTileUrl = null;
+    _instance!._cachedTileUrlResponse = null;
     return _instance!._fetchTileUrl();
   }
 

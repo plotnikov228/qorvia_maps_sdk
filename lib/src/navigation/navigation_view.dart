@@ -634,6 +634,14 @@ class _NavigationViewState extends State<NavigationView>
                 onTap: _onClose,
                 activeColor: config.colors.routeProgressActive,
                 traveledColor: config.colors.routeProgressTraveled,
+                backgroundColor: config.colors.etaPanelBackground,
+                textColor: config.colors.etaPanelText,
+                secondaryColor: config.colors.etaPanelSecondary,
+                dividerColor: config.colors.etaPanelDivider,
+                highlightColor: config.colors.etaPanelHighlight,
+                exitButtonBackground: config.colors.exitButtonBackground,
+                exitButtonBorder: config.colors.exitButtonBorder,
+                exitButtonText: config.colors.exitButtonText,
               ),
       ),
     );
@@ -661,6 +669,8 @@ class _NavigationViewState extends State<NavigationView>
               : RecenterButton(
                   currentMode: _trackingMode,
                   onPressed: _onRecenter,
+                  backgroundColor: config.colors.recenterBackground,
+                  iconColor: config.colors.recenterIcon,
                 ),
         ),
       ),

@@ -48,13 +48,13 @@ class RouteCursorEngine {
   // Cursor state
   double _distanceAlongRoute = 0;
   double _velocity = 0; // m/s, always >= 0
-  double _targetVelocity = 0; // m/s from GPS speed
   double _gpsDistanceAlongRoute = 0; // where GPS projects on route
 
   // GPS state
   double _gpsDistanceFromRoute = 0;
   bool _isOnRoute = true;
   double _lastGpsSpeed = 0;
+  DateTime _lastGpsTime = DateTime.now(); // Time of last GPS update for extrapolation
 
   // Deceleration flag — set when GPS projects behind cursor
   bool _isDecelerating = false;
@@ -66,9 +66,6 @@ class RouteCursorEngine {
 
   // Turn detection state
   _UpcomingTurn? _upcomingTurn;
-
-  // Logging throttle
-  int _frameCount = 0;
 
   RouteCursorEngine({required this.options});
 
@@ -121,7 +118,6 @@ class RouteCursorEngine {
     _precomputeDistances();
     _distanceAlongRoute = 0;
     _velocity = 0;
-    _targetVelocity = 0;
     _gpsDistanceAlongRoute = 0;
     _gpsDistanceFromRoute = 0;
     _isOnRoute = true;
@@ -132,8 +128,7 @@ class RouteCursorEngine {
         : 0;
     _currentSegmentIndex = 0;
     _upcomingTurn = null;
-    _frameCount = 0;
-
+    
     NavigationLogger.info('RouteCursorEngine', 'Route set', {
       'points': polyline.length,
       'totalDistance': _totalDistance.round(),
@@ -147,17 +142,16 @@ class RouteCursorEngine {
     _totalDistance = 0;
     _distanceAlongRoute = 0;
     _velocity = 0;
-    _targetVelocity = 0;
     _gpsDistanceAlongRoute = 0;
     _gpsDistanceFromRoute = 0;
     _isOnRoute = true;
     _isDecelerating = false;
     _lastGpsSpeed = 0;
+    _lastGpsTime = DateTime.now();
     _currentPosition = null;
     _currentBearing = 0;
     _currentSegmentIndex = 0;
     _upcomingTurn = null;
-    _frameCount = 0;
 
     NavigationLogger.info('RouteCursorEngine', 'Reset');
   }
@@ -172,6 +166,7 @@ class RouteCursorEngine {
     if (_polyline.length < 2) return;
 
     _lastGpsSpeed = speed;
+    _lastGpsTime = DateTime.now();
 
     // Find closest point on route
     final closest = _findClosestPoint(gpsPosition);
@@ -198,55 +193,6 @@ class RouteCursorEngine {
       });
     }
 
-    if (!_isOnRoute) {
-      // Off-route: target velocity = 0, let cursor slow down
-      _targetVelocity = 0;
-      _isDecelerating = true;
-      return;
-    }
-
-    // Check for backward GPS jump
-    if (_gpsDistanceAlongRoute < _distanceAlongRoute) {
-      final gap = _distanceAlongRoute - _gpsDistanceAlongRoute;
-
-      // Small backward jump (< 5m): likely GPS noise, ignore
-      if (gap < 5.0) {
-        _targetVelocity = speed;
-        _isDecelerating = false;
-      } else {
-        // Significant backward jump: decelerate to let GPS catch up
-        _targetVelocity = 0;
-        _isDecelerating = true;
-        NavigationLogger.info('RouteCursorEngine', 'GPS backward jump', {
-          'gap': gap.toStringAsFixed(1),
-          'cursorDist': _distanceAlongRoute.toStringAsFixed(1),
-          'gpsDist': _gpsDistanceAlongRoute.toStringAsFixed(1),
-        });
-      }
-    } else {
-      // GPS is ahead or at cursor position
-      final gap = _gpsDistanceAlongRoute - _distanceAlongRoute;
-      _isDecelerating = false;
-
-      if (gap > 2.0) {
-        // GPS significantly ahead: add catch-up factor
-        // Catch-up proportional to gap: more gap = more boost
-        final catchUpFactor = (gap / 10.0).clamp(0.0, 2.0);
-        _targetVelocity = speed + speed * catchUpFactor;
-      } else {
-        // GPS close to cursor: normal speed
-        _targetVelocity = speed;
-      }
-    }
-
-    NavigationLogger.debug('RouteCursorEngine', 'GPS fed', {
-      'distFromRoute': _gpsDistanceFromRoute.toStringAsFixed(1),
-      'gpsDist': _gpsDistanceAlongRoute.toStringAsFixed(0),
-      'cursorDist': _distanceAlongRoute.toStringAsFixed(0),
-      'speed': speed.toStringAsFixed(1),
-      'targetV': _targetVelocity.toStringAsFixed(1),
-      'decel': _isDecelerating,
-    });
   }
 
   // --- Frame advance ---
@@ -261,28 +207,19 @@ class RouteCursorEngine {
     final dtSec = dt.inMicroseconds / 1e6;
     if (dtSec <= 0 || dtSec > 1.0) return _currentCursorPosition();
 
-    _frameCount++;
+    // --- Extrapolate GPS position ---
+    // GPS updates come ~1Hz, but we need smooth cursor movement at 60fps.
+    // Extrapolate where GPS should be NOW based on last known position + speed.
+    final timeSinceGps = DateTime.now().difference(_lastGpsTime).inMilliseconds / 1000.0;
+    final extrapolatedGpsDistance = (_gpsDistanceAlongRoute + _lastGpsSpeed * timeSinceGps)
+        .clamp(0.0, _totalDistance);
 
     // --- Velocity control ---
-    _updateVelocity(dtSec);
+    _updateVelocityWithExtrapolation(dtSec, extrapolatedGpsDistance);
 
     // --- Advance distance ---
     _distanceAlongRoute += _velocity * dtSec;
     _distanceAlongRoute = _distanceAlongRoute.clamp(0.0, _totalDistance);
-
-    // --- Micro-correction toward GPS ---
-    // When cursor is behind GPS projection, blend to catch up.
-    // Increased catch-up rate to reduce cursor lag after turns.
-    if (_isOnRoute && !_isDecelerating) {
-      final gap = _gpsDistanceAlongRoute - _distanceAlongRoute;
-      if (gap > 0.05 && gap < 10.0) {
-        // Progressive catch-up: faster when gap is larger
-        // ~15% per frame for small gaps, ~30% for larger gaps
-        final catchUpRate = 0.15 + (gap / 10.0) * 0.15;
-        final correction = gap * catchUpRate * dtSec * 60;
-        _distanceAlongRoute += correction.clamp(0.0, gap);
-      }
-    }
 
     // --- Project onto polyline ---
     final projected = _positionAtDistance(_distanceAlongRoute);
@@ -293,53 +230,79 @@ class RouteCursorEngine {
     // --- Scan for upcoming turns ---
     _scanForUpcomingTurn();
 
-    // Throttled logging (every 60th frame ≈ 1/sec)
-    if (_frameCount % 60 == 0) {
-      NavigationLogger.debug('RouteCursorEngine', 'Frame', {
-        'dist': _distanceAlongRoute.toStringAsFixed(1),
-        'v': _velocity.toStringAsFixed(1),
-        'seg': _currentSegmentIndex,
-        'bear': _currentBearing.toStringAsFixed(0),
-        'turn': _upcomingTurn?.angle.toStringAsFixed(0),
-      });
-    }
-
     return _currentCursorPosition();
   }
 
   // --- Private: velocity ---
 
-  void _updateVelocity(double dtSec) {
-    // Acceleration/deceleration limits
-    const maxAcceleration = 5.0; // m/s²
-    const maxDeceleration = 4.0; // m/s²
-    const velocitySmoothingTime = 0.3; // seconds
+  /// Updates cursor velocity based on extrapolated GPS position.
+  ///
+  /// Key insight: GPS updates at ~1Hz, but we animate at 60fps.
+  /// Instead of complex catch-up logic, we simply:
+  /// 1. Extrapolate where GPS should be NOW
+  /// 2. Target velocity = GPS speed + small correction for gap
+  /// 3. Smoothly transition to target velocity
+  void _updateVelocityWithExtrapolation(double dtSec, double extrapolatedGpsDistance) {
+    // Acceleration limits (m/s²)
+    const maxAcceleration = 3.0;
+    const maxDeceleration = 4.0;
 
-    double targetV = _targetVelocity;
+    // Calculate gap between cursor and extrapolated GPS position
+    final gap = extrapolatedGpsDistance - _distanceAlongRoute;
 
-    // Apply turn velocity reduction
+    // Distance remaining to end of route
+    final distanceToEnd = _totalDistance - _distanceAlongRoute;
+
+    // Determine target velocity based on gap
+    double targetV;
+
+    if (!_isOnRoute) {
+      // Off-route: slow down
+      targetV = 0;
+      _isDecelerating = true;
+    } else if (gap < -2.0) {
+      // Cursor is ahead of GPS by more than 2m - slow down proportionally
+      // At gap=-2m: 90% speed, at gap=-5m: 50% speed, at gap=-10m+: 20% speed
+      final slowFactor = ((-gap - 2.0) / 8.0).clamp(0.0, 0.8);
+      targetV = _lastGpsSpeed * (1.0 - slowFactor);
+      targetV = math.max(targetV, _lastGpsSpeed * 0.2); // Minimum 20% speed
+      _isDecelerating = true;
+    } else if (gap > 2.0) {
+      // Cursor is behind GPS by more than 2m - speed up slightly
+      // Max boost: 20% extra speed for gaps > 10m
+      final boostFactor = ((gap - 2.0) / 40.0).clamp(0.0, 0.2);
+      targetV = _lastGpsSpeed * (1.0 + boostFactor);
+      _isDecelerating = false;
+    } else {
+      // Within ±2m of GPS - just match GPS speed
+      targetV = _lastGpsSpeed;
+      _isDecelerating = false;
+    }
+
+    // Catch-up mode: when GPS speed is 0 but cursor is behind GPS position,
+    // use minimum velocity to allow cursor to reach destination.
+    // This handles the case when user stops near destination.
+    if (_lastGpsSpeed < 0.5 && gap > 1.0 && distanceToEnd < 200.0) {
+      // Minimum catch-up speed: 2 m/s (walking pace) scaled by gap
+      final catchUpSpeed = (gap / 20.0).clamp(0.5, 2.0);
+      targetV = math.max(targetV, catchUpSpeed);
+    }
+
+    // Apply turn slowdown
     if (_upcomingTurn != null) {
       final turnFactor = _turnVelocityFactor(_upcomingTurn!);
       targetV *= turnFactor;
     }
 
-    // Compute desired acceleration
+    // Smooth velocity transition
     final diff = targetV - _velocity;
-    final rawAccel = diff / velocitySmoothingTime;
+    final maxDelta = (diff > 0 ? maxAcceleration : maxDeceleration) * dtSec;
+    final delta = diff.clamp(-maxDelta.abs(), maxDelta.abs());
 
-    // Clamp acceleration
-    double accel;
-    if (rawAccel > 0) {
-      accel = rawAccel.clamp(0.0, maxAcceleration);
-    } else {
-      accel = rawAccel.clamp(-maxDeceleration, 0.0);
-    }
+    _velocity = math.max(0.0, _velocity + delta);
 
-    // Update velocity
-    _velocity = math.max(0.0, _velocity + accel * dtSec);
-
-    // Hard clamp: never exceed 2x GPS speed (safety)
-    final maxSpeed = math.max(_lastGpsSpeed * 2.5, 1.0);
+    // Hard clamp: never exceed 1.3x GPS speed (but allow catch-up minimum)
+    final maxSpeed = math.max(_lastGpsSpeed * 1.3, 2.0);
     _velocity = _velocity.clamp(0.0, maxSpeed);
   }
 
@@ -363,13 +326,6 @@ class RouteCursorEngine {
 
     // Interpolate: full speed at slowdown distance, minimum at turn
     final factor = minFactor + (1.0 - minFactor) * proximity;
-
-    NavigationLogger.debug('RouteCursorEngine', 'Turn velocity factor', {
-      'angle': turn.angle.toStringAsFixed(0),
-      'distance': turn.distance.toStringAsFixed(1),
-      'sharpness': sharpness.toStringAsFixed(2),
-      'factor': factor.toStringAsFixed(2),
-    });
 
     return factor;
   }
@@ -410,20 +366,11 @@ class RouteCursorEngine {
           }
         }
 
-        final oldTurn = _upcomingTurn;
         _upcomingTurn = _UpcomingTurn(
           angle: delta,
           distance: distToTurn,
           vertexIndex: i,
         );
-
-        if (oldTurn == null || oldTurn.vertexIndex != i) {
-          NavigationLogger.debug('RouteCursorEngine', 'Turn detected', {
-            'angle': delta.toStringAsFixed(0),
-            'distance': distToTurn.toStringAsFixed(0),
-            'vertex': i,
-          });
-        }
         return;
       }
 

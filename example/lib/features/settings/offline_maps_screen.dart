@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../core/localization/app_localizations.dart';
 
 /// Screen for managing offline map regions.
 ///
@@ -21,10 +22,13 @@ class OfflineMapsScreen extends StatefulWidget {
 
 class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
   OfflineTileManager? _tileManager;
+  OfflinePackageManager? _packageManager;
   List<OfflineRegion> _regions = [];
   List<TileRegion> _serverRegions = [];
+  List<OfflinePackage> _packages = [];
   final Map<String, DownloadProgress> _activeDownloads = {};
   final Map<String, StreamSubscription<DownloadProgress>> _downloadSubs = {};
+  final Map<String, StreamSubscription<PackageDownloadEvent>> _packageDownloadSubs = {};
   bool _isLoading = true;
   bool _isLoadingServerRegions = false;
   String? _error;
@@ -36,14 +40,14 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
   }
 
   Future<void> _initManager() async {
-    _log('Initializing offline tile manager');
+    _log('Initializing offline managers');
     try {
       _tileManager = QorviaMapsSDK.offlineManager;
+      _packageManager = QorviaMapsSDK.packageManager;
 
       if (_tileManager == null) {
         setState(() {
-          _error = 'Офлайн-менеджер недоступен.\n'
-              'Убедитесь, что SDK инициализирован с offlineConfig.';
+          _error = 'offlineManagerUnavailable';
           _isLoading = false;
         });
         return;
@@ -54,6 +58,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
       }
 
       await _loadRegions();
+      await _loadPackages();
       // Load server regions in parallel (non-blocking)
       _loadServerRegions();
     } catch (e) {
@@ -62,6 +67,24 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
         _error = 'Ошибка инициализации: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadPackages() async {
+    if (_packageManager == null) {
+      _log('Package manager not available');
+      return;
+    }
+
+    _log('Loading offline packages');
+    try {
+      final packages = await _packageManager!.getAllPackages();
+      setState(() {
+        _packages = packages;
+      });
+      _log('Loaded packages', {'count': packages.length});
+    } catch (e) {
+      _log('Error loading packages', {'error': e.toString()});
     }
   }
 
@@ -183,17 +206,17 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
   }
 
   Future<void> _onDownloadServerRegion(TileRegion serverRegion) async {
-    _log('Downloading server preset via native MapLibre', {
+    _log('Downloading server preset', {
       'id': serverRegion.id,
       'name': serverRegion.name,
       'sizeMb': serverRegion.sizeMb,
     });
 
-    try {
-      final styleUrl = await QorviaMapsSDK.instance.getTileUrl();
-      _log('Got style URL', {'styleUrl': styleUrl});
+    final styleUrl = await QorviaMapsSDK.instance.getTileUrl();
+    _log('Got style URL', {'styleUrl': styleUrl});
 
-      // Use native MapLibre download instead of server mbtiles
+    // Download tiles via native MapLibre
+    try {
       await _downloadNative(
         bounds: serverRegion.bounds,
         minZoom: serverRegion.minZoom,
@@ -202,8 +225,112 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
         styleUrl: styleUrl,
       );
     } catch (e) {
-      _log('Error downloading server region', {'error': e.toString()});
-      _showSnackBar('Ошибка скачивания региона: $e');
+      _log('Native tile download failed', {'error': e.toString()});
+      _showSnackBar('Tile download failed: $e');
+    }
+
+    // Note: Offline routing/geocoding data is not yet available.
+    // Routing and geocoding will work online only.
+  }
+
+  /// Downloads a full offline package including routing and geocoding data.
+  Future<void> _downloadFullPackage({
+    required String name,
+    required OfflineBounds bounds,
+    required int minZoom,
+    required int maxZoom,
+  }) async {
+    if (_packageManager == null) {
+      _log('Package manager not available, skipping full package download');
+      return;
+    }
+
+    _log('Creating full offline package', {
+      'name': name,
+      'bounds': '${bounds.southwest.lat},${bounds.southwest.lon} - ${bounds.northeast.lat},${bounds.northeast.lon}',
+    });
+
+    try {
+      // Create package with all content types
+      final package = await _packageManager!.createPackage(
+        CreatePackageParams(
+          name: name,
+          bounds: bounds,
+          minZoom: minZoom.toDouble(),
+          maxZoom: maxZoom.toDouble(),
+          contentTypes: {
+            PackageContentType.routing,
+            PackageContentType.geocoding,
+          },
+        ),
+      );
+
+      _log('Package created, starting download', {'packageId': package.id});
+      _showSnackBar('Downloading routing data for "$name"...');
+
+      // Start download
+      final subscription = _packageManager!.downloadPackage(package.id).listen(
+        (event) {
+          _log('Package download event', {
+            'type': event.type.name,
+            'progress': event.progress.overallPercent.toStringAsFixed(1),
+            'currentlyDownloading': event.progress.currentlyDownloading?.name,
+          });
+
+          // Show error details if any content failed
+          for (final content in event.progress.contentProgress.values) {
+            if (content.hasFailed) {
+              _log('Content failed', {
+                'type': content.type.name,
+                'error': content.errorMessage,
+              });
+              // Show user-friendly error
+              _showSnackBar('${content.type.name} download failed: ${content.errorMessage}');
+            }
+          }
+        },
+        onDone: () async {
+          _log('Package download completed');
+
+          // Check what was actually downloaded
+          final updatedPackage = await _packageManager!.getPackage(package.id);
+          if (updatedPackage != null) {
+            final hasRouting = updatedPackage.hasRoutingReady;
+            final hasGeocoding = updatedPackage.hasGeocodingReady;
+
+            _log('Package final status', {
+              'hasRouting': hasRouting,
+              'hasGeocoding': hasGeocoding,
+              'status': updatedPackage.status.name,
+            });
+
+            if (hasRouting && hasGeocoding) {
+              _showSnackBar('Offline data fully downloaded for "$name"');
+            } else if (hasRouting || hasGeocoding) {
+              final missing = <String>[];
+              if (!hasRouting) missing.add('routing');
+              if (!hasGeocoding) missing.add('geocoding');
+              _showSnackBar('Partial download for "$name". Missing: ${missing.join(', ')}');
+            } else {
+              _showSnackBar('No offline routing/geocoding data available for "$name". Server may not support this region.');
+            }
+          } else {
+            _showSnackBar('Routing data downloaded for "$name"');
+          }
+
+          _loadPackages();
+        },
+        onError: (e, stack) {
+          _log('Package download error', {'error': e.toString(), 'stack': stack.toString()});
+          _showSnackBar('Routing download failed: $e');
+          _loadPackages();
+        },
+      );
+
+      _packageDownloadSubs[package.id] = subscription;
+    } catch (e, stack) {
+      _log('Error creating package', {'error': e.toString(), 'stack': stack.toString()});
+      _showSnackBar('Failed to create offline package: $e');
     }
   }
 
@@ -222,7 +349,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
       'zoom': '$minZoom-$maxZoom',
     });
 
-    _showSnackBar('Скачивание региона "$regionName"...');
+    _showSnackBar('${AppLocalizations.of(context).downloadingRegion} "$regionName"...');
 
     try {
       final nativeRegion = await _tileManager?.downloadRegionNative(
@@ -239,7 +366,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
 
       if (nativeRegion != null) {
         _log('Native download completed', {'id': nativeRegion.id});
-        _showSnackBar('Регион "$regionName" скачан');
+        _showSnackBar('${AppLocalizations.of(context).regionDownloaded}: "$regionName"');
         await _loadRegions();
       }
     } catch (e) {
@@ -252,19 +379,20 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     final isDatabaseError = error.contains('no such table') ||
         error.contains('database') ||
         error.contains('Database');
+    final l10n = AppLocalizations.of(context);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Ошибка скачивания'),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.downloadErrorTitle),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Не удалось скачать регион:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                l10n.failedToDownloadRegion,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -273,10 +401,9 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               ),
               if (isDatabaseError) ...[
                 const SizedBox(height: 16),
-                const Text(
-                  'Похоже, база данных MapLibre повреждена. '
-                  'Попробуйте сбросить её и перезапустить приложение.',
-                  style: TextStyle(fontSize: 12, color: Colors.orange),
+                Text(
+                  l10n.databaseCorrupted,
+                  style: const TextStyle(fontSize: 12, color: Colors.orange),
                 ),
               ],
             ],
@@ -286,14 +413,14 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
           if (isDatabaseError)
             TextButton(
               onPressed: () async {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
                 await _resetDatabase();
               },
-              child: const Text('Сбросить базу'),
+              child: Text(l10n.resetDatabaseButton),
             ),
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Закрыть'),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(l10n.close),
           ),
         ],
       ),
@@ -307,45 +434,42 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     final deleted = await MapLibreNativeHelper.deleteOfflineDatabase();
     _log('Native database delete result', {'deleted': deleted});
 
+    final l10n = AppLocalizations.of(context);
     if (deleted) {
-      _showSnackBar('База данных удалена. Перезапустите приложение.');
+      _showSnackBar(l10n.databaseDeleted);
     } else {
       // Also try the SDK method as fallback
       final sdkDeleted = await _tileManager?.resetNativeDatabase() ?? false;
       if (sdkDeleted) {
-        _showSnackBar('База данных сброшена. Перезапустите приложение.');
+        _showSnackBar(l10n.databaseReset);
       } else {
-        _showSnackBar('База данных не найдена');
+        _showSnackBar(l10n.databaseNotFound);
       }
     }
   }
 
   void _showResetDatabaseConfirmation() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Сбросить базу данных?'),
-        content: const Text(
-          'Это удалит все скачанные офлайн карты MapLibre.\n\n'
-          'Используйте эту опцию если скачивание не работает '
-          'из-за ошибки "no such table: regions".\n\n'
-          'После сброса нужно перезапустить приложение.',
-        ),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.resetDatabaseConfirmTitle),
+        content: Text(l10n.resetDatabaseConfirmMessage),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               await _resetDatabase();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Сбросить'),
+            child: Text(l10n.resetDatabase),
           ),
         ],
       ),
@@ -362,10 +486,11 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
 
     if (!mounted) return;
 
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Статус базы данных'),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.databaseStatusTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,40 +504,39 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    exists ? 'База данных существует' : 'База данных не найдена',
+                    exists ? l10n.databaseExists : l10n.databaseNotFoundStatus,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Text(
-              'Путь: ${dbPath ?? "неизвестно"}',
+              '${l10n.path}: ${dbPath ?? l10n.unknown}',
               style: const TextStyle(fontSize: 11, color: Colors.grey),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Если скачивание не работает с ошибкой "no such table", '
-              'попробуйте удалить базу и перезапустить приложение.',
-              style: TextStyle(fontSize: 12),
+            Text(
+              l10n.downloadNotWorkingHint,
+              style: const TextStyle(fontSize: 12),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Закрыть'),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(l10n.close),
           ),
           if (exists)
             ElevatedButton(
               onPressed: () async {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
                 await _resetDatabase();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Удалить базу'),
+              child: Text(l10n.deleteDatabase),
             ),
         ],
       ),
@@ -446,9 +570,17 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
         regionName: params.name,
         styleUrl: styleUrl,
       );
+
+      // Also download full package with routing/geocoding
+      await _downloadFullPackage(
+        name: params.name,
+        bounds: params.bounds,
+        minZoom: params.minZoom.toInt(),
+        maxZoom: params.maxZoom.toInt(),
+      );
     } catch (e) {
       _log('Error creating region', {'error': e.toString()});
-      _showSnackBar('Ошибка создания региона: $e');
+      _showSnackBar('${AppLocalizations.of(context).regionCreationError}: $e');
     }
   }
 
@@ -469,15 +601,20 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
       sub.cancel();
     }
     _downloadSubs.clear();
+    for (final sub in _packageDownloadSubs.values) {
+      sub.cancel();
+    }
+    _packageDownloadSubs.clear();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Офлайн карты'),
+        title: Text(l10n.offlineMapsTitle),
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.onSurface,
         elevation: 0,
@@ -485,7 +622,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadRegions,
-            tooltip: 'Обновить',
+            tooltip: l10n.refresh,
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -496,23 +633,23 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'check',
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, size: 20),
-                    SizedBox(width: 8),
-                    Text('Проверить базу'),
+                    const Icon(Icons.info_outline, size: 20),
+                    const SizedBox(width: 8),
+                    Text(l10n.checkDatabase),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'reset',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_forever, size: 20, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Сбросить базу', style: TextStyle(color: Colors.red)),
+                    const Icon(Icons.delete_forever, size: 20, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Text(l10n.resetDatabase, style: const TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
@@ -527,13 +664,15 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
-              label: const Text('Добавить регион'),
+              label: Text(l10n.addRegion),
             )
           : null,
     );
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
+
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(),
@@ -541,6 +680,18 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     }
 
     if (_error != null) {
+      // Resolve error key to localized string
+      String errorText;
+      if (_error == 'offlineManagerUnavailable') {
+        errorText = l10n.offlineManagerUnavailable;
+      } else if (_error!.startsWith('Ошибка инициализации') || _error!.contains('initialization')) {
+        errorText = '${l10n.initializationError}: ${_error!.replaceFirst(RegExp(r'^.*?:\s*'), '')}';
+      } else if (_error!.startsWith('Ошибка загрузки') || _error!.contains('loading')) {
+        errorText = '${l10n.loadingRegionsError}: ${_error!.replaceFirst(RegExp(r'^.*?:\s*'), '')}';
+      } else {
+        errorText = _error!;
+      }
+
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -554,7 +705,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                _error!,
+                errorText,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
@@ -564,7 +715,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _initManager,
-                child: const Text('Повторить'),
+                child: Text(l10n.retry),
               ),
             ],
           ),
@@ -591,7 +742,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(
-                'Сохранённые карты',
+                l10n.savedMaps,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -648,6 +799,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
   }
 
   Widget _buildEmptyState() {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -659,7 +811,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'Нет сохраненных карт',
+            l10n.noSavedMaps,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
@@ -668,7 +820,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Скачайте карты для использования\nбез интернета',
+            l10n.downloadMapsDescription,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -679,7 +831,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
           ElevatedButton.icon(
             onPressed: _showCreateRegionDialog,
             icon: const Icon(Icons.add),
-            label: const Text('Добавить регион'),
+            label: Text(l10n.addRegion),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -706,6 +858,7 @@ class _ServerRegionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -720,7 +873,7 @@ class _ServerRegionsSection extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'Доступные регионы',
+                l10n.availableRegions,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -745,7 +898,7 @@ class _ServerRegionsSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'Нет доступных регионов',
+              l10n.noAvailableRegions,
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.onSurfaceVariant,
@@ -847,12 +1000,17 @@ class _ServerRegionCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(
-                '${region.tilesCount} тайлов',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.outline,
-                ),
+              Builder(
+                builder: (context) {
+                  final l10n = AppLocalizations.of(context);
+                  return Text(
+                    '${region.tilesCount} ${l10n.tiles}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.outline,
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -860,16 +1018,21 @@ class _ServerRegionCard extends StatelessWidget {
           // Download button
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: onDownload,
-              icon: const Icon(Icons.download, size: 16),
-              label: const Text('Скачать'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                textStyle: const TextStyle(fontSize: 12),
-              ),
+            child: Builder(
+              builder: (context) {
+                final l10n = AppLocalizations.of(context);
+                return ElevatedButton.icon(
+                  onPressed: onDownload,
+                  icon: const Icon(Icons.download, size: 16),
+                  label: Text(l10n.download),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -1020,6 +1183,7 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
   }
 
   Widget _buildEstimateInfo() {
+    final l10n = AppLocalizations.of(context);
     if (_isEstimating) {
       return Container(
         padding: const EdgeInsets.all(12),
@@ -1040,7 +1204,7 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
             ),
             const SizedBox(width: 8),
             Text(
-              'Расчёт размера...',
+              l10n.calculatingSize,
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.onSurfaceVariant,
@@ -1077,7 +1241,7 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Предварительная оценка',
+                  l10n.preliminaryEstimate,
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.onSurfaceVariant,
@@ -1085,7 +1249,7 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${_estimate!.sizeFormatted} • ${_estimate!.tilesCount} тайлов',
+                  '${_estimate!.sizeFormatted} • ${_estimate!.tilesCount} ${l10n.tiles}',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1102,6 +1266,7 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: EdgeInsets.only(
         left: 24,
@@ -1120,7 +1285,7 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
                 Icon(Icons.map, color: AppColors.primary),
                 const SizedBox(width: 12),
                 Text(
-                  'Новый регион',
+                  l10n.newRegion,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -1132,21 +1297,21 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
             const SizedBox(height: 24),
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Название',
-                hintText: 'Например: Москва центр',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.regionName,
+                hintText: l10n.regionNameHint,
+                border: const OutlineInputBorder(),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Введите название';
+                  return l10n.enterName;
                 }
                 return null;
               },
             ),
             const SizedBox(height: 16),
             Text(
-              'Уровень масштабирования: ${_minZoom.toInt()} - ${_maxZoom.toInt()}',
+              '${l10n.zoomLevel}: ${_minZoom.toInt()} - ${_maxZoom.toInt()}',
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.onSurfaceVariant,
@@ -1171,7 +1336,7 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Чем выше масштаб, тем больше размер загрузки',
+              l10n.higherZoomLargerSize,
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.outline,
@@ -1186,7 +1351,7 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _isCreating ? null : () => Navigator.pop(context),
-                    child: const Text('Отмена'),
+                    child: Text(l10n.cancel),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1206,7 +1371,7 @@ class _CreateRegionSheetState extends State<_CreateRegionSheet> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Создать'),
+                        : Text(l10n.create),
                   ),
                 ),
               ],
@@ -1377,12 +1542,14 @@ class _RegionSelectionScreenState extends State<_RegionSelectionScreen> {
             showHandles: true,
           ),
 
-          // Top bar with estimate info
+          // Top bar with estimate info (IgnorePointer allows map gestures)
           Positioned(
             top: MediaQuery.of(context).padding.top + 70,
             left: 16,
             right: 16,
-            child: _buildEstimateBar(),
+            child: IgnorePointer(
+              child: _buildEstimateBar(),
+            ),
           ),
         ],
       ),
@@ -1394,6 +1561,7 @@ class _RegionSelectionScreenState extends State<_RegionSelectionScreen> {
       return const SizedBox.shrink();
     }
 
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -1420,7 +1588,7 @@ class _RegionSelectionScreenState extends State<_RegionSelectionScreen> {
             ),
             const SizedBox(width: 12),
             Text(
-              'Расчёт размера...',
+              l10n.calculatingSize,
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.onSurfaceVariant,
@@ -1449,7 +1617,7 @@ class _RegionSelectionScreenState extends State<_RegionSelectionScreen> {
             ),
             const SizedBox(width: 4),
             Text(
-              '${_estimate!.tilesCount} тайлов',
+              '${_estimate!.tilesCount} ${l10n.tiles}',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.onSurfaceVariant,
@@ -1568,6 +1736,7 @@ class _RegionConfigSheetState extends State<_RegionConfigSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: EdgeInsets.only(
         left: 24,
@@ -1586,7 +1755,7 @@ class _RegionConfigSheetState extends State<_RegionConfigSheet> {
                 Icon(Icons.check_circle, color: AppColors.success),
                 const SizedBox(width: 12),
                 Text(
-                  'Область выбрана',
+                  l10n.areaSelected,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -1608,14 +1777,14 @@ class _RegionConfigSheetState extends State<_RegionConfigSheet> {
             // Name field
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Название региона',
-                hintText: 'Например: Москва центр',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.regionName,
+                hintText: l10n.regionNameHint,
+                border: const OutlineInputBorder(),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Введите название';
+                  return l10n.enterName;
                 }
                 return null;
               },
@@ -1624,7 +1793,7 @@ class _RegionConfigSheetState extends State<_RegionConfigSheet> {
 
             // Zoom slider
             Text(
-              'Уровень масштабирования: ${_minZoom.toInt()} - ${_maxZoom.toInt()}',
+              '${l10n.zoomLevel}: ${_minZoom.toInt()} - ${_maxZoom.toInt()}',
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.onSurfaceVariant,
@@ -1665,7 +1834,7 @@ class _RegionConfigSheetState extends State<_RegionConfigSheet> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Пересчёт...',
+                      l10n.recalculating,
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.onSurfaceVariant,
@@ -1683,7 +1852,7 @@ class _RegionConfigSheetState extends State<_RegionConfigSheet> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _isCreating ? null : () => Navigator.pop(context),
-                    child: const Text('Отмена'),
+                    child: Text(l10n.cancel),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1691,7 +1860,7 @@ class _RegionConfigSheetState extends State<_RegionConfigSheet> {
                   child: ElevatedButton.icon(
                     onPressed: _isCreating ? null : _onCreate,
                     icon: _isCreating
-                        ? SizedBox(
+                        ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
@@ -1700,7 +1869,7 @@ class _RegionConfigSheetState extends State<_RegionConfigSheet> {
                             ),
                           )
                         : const Icon(Icons.download),
-                    label: const Text('Скачать'),
+                    label: Text(l10n.download),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
@@ -1715,3 +1884,4 @@ class _RegionConfigSheetState extends State<_RegionConfigSheet> {
     );
   }
 }
+

@@ -207,7 +207,7 @@ class _ModeOptionState extends State<_ModeOption>
                           : AppColors.onSurfaceVariant,
                       letterSpacing: 0.3,
                     ),
-                    child: Text(widget.mode.displayName),
+                    child: Text(widget.mode.localizedName(context)),
                   ),
                 ],
               ),

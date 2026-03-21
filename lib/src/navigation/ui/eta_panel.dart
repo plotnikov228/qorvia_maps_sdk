@@ -86,12 +86,44 @@ class CompactEtaPanel extends StatelessWidget {
   /// Color for traveled route portion.
   final Color traveledColor;
 
+  /// Background color for the panel.
+  final Color backgroundColor;
+
+  /// Primary text color (values like time, distance).
+  final Color textColor;
+
+  /// Secondary text color (labels).
+  final Color secondaryColor;
+
+  /// Divider color between info columns.
+  final Color dividerColor;
+
+  /// Highlighted text color (e.g., arrival time).
+  final Color highlightColor;
+
+  /// Background color for exit button.
+  final Color exitButtonBackground;
+
+  /// Border color for exit button.
+  final Color exitButtonBorder;
+
+  /// Text/icon color for exit button.
+  final Color exitButtonText;
+
   const CompactEtaPanel({
     super.key,
     required this.state,
     this.onTap,
     this.activeColor = const Color(0xFF2979FF),
     this.traveledColor = const Color(0xFFBDBDBD),
+    this.backgroundColor = Colors.white,
+    this.textColor = const Color(0xDD000000), // Colors.black87
+    this.secondaryColor = const Color(0xFF757575), // Grey shade 600
+    this.dividerColor = const Color(0xFFE0E0E0), // Grey shade 300
+    this.highlightColor = const Color(0xFF388E3C), // Green shade 700
+    this.exitButtonBackground = const Color(0xFFFFEBEE), // Red shade 50
+    this.exitButtonBorder = const Color(0xFFEF9A9A), // Red shade 200
+    this.exitButtonText = const Color(0xFFD32F2F), // Red shade 700
   });
 
   @override
@@ -99,7 +131,7 @@ class CompactEtaPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: backgroundColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(26),
@@ -130,12 +162,19 @@ class CompactEtaPanel extends StatelessWidget {
                   currentLeg: state.currentLegIndex,
                   totalLegs: state.totalLegs,
                   nextWaypointDistance: state.formattedNextWaypointDistance,
+                  activeColor: activeColor,
+                  secondaryColor: secondaryColor,
                 ),
               ),
             Row(
               children: [
                 // Exit button
-                _ExitButton(onTap: onTap),
+                _ExitButton(
+                  onTap: onTap,
+                  backgroundColor: exitButtonBackground,
+                  borderColor: exitButtonBorder,
+                  textColor: exitButtonText,
+                ),
                 const SizedBox(width: 12),
                 // Info columns
                 Expanded(
@@ -145,25 +184,32 @@ class CompactEtaPanel extends StatelessWidget {
                       _InfoColumn(
                         value: state.formattedDurationRemaining,
                         label: 'Осталось',
+                        textColor: textColor,
+                        secondaryColor: secondaryColor,
                       ),
                       Container(
                         width: 1,
                         height: 40,
-                        color: Colors.grey.shade300,
+                        color: dividerColor,
                       ),
                       _InfoColumn(
                         value: state.formattedDistanceRemaining,
                         label: 'Расстояние',
+                        textColor: textColor,
+                        secondaryColor: secondaryColor,
                       ),
                       Container(
                         width: 1,
                         height: 40,
-                        color: Colors.grey.shade300,
+                        color: dividerColor,
                       ),
                       _InfoColumn(
                         value: state.formattedEta,
                         label: 'Прибытие',
                         highlighted: true,
+                        textColor: textColor,
+                        secondaryColor: secondaryColor,
+                        highlightColor: highlightColor,
                       ),
                     ],
                   ),
@@ -177,7 +223,7 @@ class CompactEtaPanel extends StatelessWidget {
   }
 }
 
-/// Route progress track with arrow cursor.
+/// Route progress track with animated arrow cursor.
 class _RouteProgressTrack extends StatelessWidget {
   final double progress;
   final Color activeColor;
@@ -196,50 +242,59 @@ class _RouteProgressTrack extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final trackWidth = constraints.maxWidth;
-          final cursorPosition = trackWidth * progress.clamp(0.0, 1.0);
 
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Track background (active/remaining portion)
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 10,
-                child: Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: activeColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              // Traveled portion overlay
-              Positioned(
-                left: 0,
-                top: 10,
-                child: Container(
-                  width: cursorPosition,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: traveledColor,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(2),
-                      bottomLeft: Radius.circular(2),
+          // Animate progress changes smoothly
+          return TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: progress.clamp(0.0, 1.0)),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+            builder: (context, animatedProgress, child) {
+              final cursorPosition = trackWidth * animatedProgress;
+
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Track background (active/remaining portion)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 10,
+                    child: Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: activeColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              // Arrow cursor
-              Positioned(
-                left: cursorPosition - 8,
-                top: 0,
-                child: CustomPaint(
-                  size: const Size(16, 24),
-                  painter: _ArrowCursorPainter(color: activeColor),
-                ),
-              ),
-            ],
+                  // Traveled portion overlay (animated)
+                  Positioned(
+                    left: 0,
+                    top: 10,
+                    child: Container(
+                      width: cursorPosition,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: traveledColor,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(2),
+                          bottomLeft: Radius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Arrow cursor (animated)
+                  Positioned(
+                    left: cursorPosition - 12,
+                    top: 0,
+                    child: CustomPaint(
+                      size: const Size(24, 24),
+                      painter: _ArrowCursorPainter(color: activeColor),
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -247,7 +302,7 @@ class _RouteProgressTrack extends StatelessWidget {
   }
 }
 
-/// Custom painter for arrow-shaped cursor.
+/// Custom painter for arrow-shaped cursor with 3D effect.
 class _ArrowCursorPainter extends CustomPainter {
   final Color color;
 
@@ -255,22 +310,34 @@ class _ArrowCursorPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final tipX = size.width;
+    final tipY = size.height * 0.5;
+
+    // Top half (lighter)
+    final topPaint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
 
-    // Arrow pointing right (direction of travel)
-    final path = Path()
-      ..moveTo(0, size.height * 0.3)
-      ..lineTo(size.width * 0.6, size.height * 0.3)
-      ..lineTo(size.width * 0.6, 0)
-      ..lineTo(size.width, size.height * 0.5)
-      ..lineTo(size.width * 0.6, size.height)
-      ..lineTo(size.width * 0.6, size.height * 0.7)
-      ..lineTo(0, size.height * 0.7)
+    final topPath = Path()
+      ..moveTo(0, 0) // Top-left
+      ..lineTo(tipX, tipY) // Sharp tip
+      ..lineTo(0, tipY) // Center-left
       ..close();
 
-    canvas.drawPath(path, paint);
+    canvas.drawPath(topPath, topPaint);
+
+    // Bottom half (darker for 3D effect)
+    final bottomPaint = Paint()
+      ..color = Color.lerp(color, Colors.black, 0.2)!
+      ..style = PaintingStyle.fill;
+
+    final bottomPath = Path()
+      ..moveTo(0, tipY) // Center-left
+      ..lineTo(tipX, tipY) // Sharp tip
+      ..lineTo(0, size.height) // Bottom-left
+      ..close();
+
+    canvas.drawPath(bottomPath, bottomPaint);
   }
 
   @override
@@ -280,8 +347,16 @@ class _ArrowCursorPainter extends CustomPainter {
 
 class _ExitButton extends StatelessWidget {
   final VoidCallback? onTap;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color textColor;
 
-  const _ExitButton({this.onTap});
+  const _ExitButton({
+    this.onTap,
+    this.backgroundColor = const Color(0xFFFFEBEE), // Red shade 50
+    this.borderColor = const Color(0xFFEF9A9A), // Red shade 200
+    this.textColor = const Color(0xFFD32F2F), // Red shade 700
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -296,19 +371,19 @@ class _ExitButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.red.shade50,
+            color: backgroundColor,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.red.shade200),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.close, color: Colors.red.shade700, size: 20),
+              Icon(Icons.close, color: textColor, size: 20),
               const SizedBox(width: 6),
               Text(
                 'Выход',
                 style: TextStyle(
-                  color: Colors.red.shade700,
+                  color: textColor,
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
@@ -325,15 +400,24 @@ class _WaypointProgress extends StatelessWidget {
   final int currentLeg;
   final int totalLegs;
   final String nextWaypointDistance;
+  final Color activeColor;
+  final Color secondaryColor;
 
   const _WaypointProgress({
     required this.currentLeg,
     required this.totalLegs,
     required this.nextWaypointDistance,
+    this.activeColor = const Color(0xFF2979FF),
+    this.secondaryColor = const Color(0xFF757575),
   });
 
   @override
   Widget build(BuildContext context) {
+    // Completed leg color (green tint of active color)
+    final completedColor = Color.lerp(activeColor, Colors.green, 0.5)!;
+    // Inactive leg color (dimmed secondary)
+    final inactiveColor = secondaryColor.withAlpha(100);
+
     return Row(
       children: [
         // Dot indicators for legs
@@ -345,10 +429,10 @@ class _WaypointProgress extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: i < currentLeg
-                  ? Colors.green.shade400
+                  ? completedColor
                   : i == currentLeg
-                      ? Colors.blue.shade400
-                      : Colors.grey.shade300,
+                      ? activeColor
+                      : inactiveColor,
             ),
           ),
         ],
@@ -358,7 +442,7 @@ class _WaypointProgress extends StatelessWidget {
           'Точка ${currentLeg + 1} из $totalLegs',
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade600,
+            color: secondaryColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -369,7 +453,7 @@ class _WaypointProgress extends StatelessWidget {
             'До точки: $nextWaypointDistance',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.blue.shade600,
+              color: activeColor,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -382,11 +466,17 @@ class _InfoColumn extends StatelessWidget {
   final String value;
   final String label;
   final bool highlighted;
+  final Color textColor;
+  final Color secondaryColor;
+  final Color highlightColor;
 
   const _InfoColumn({
     required this.value,
     required this.label,
     this.highlighted = false,
+    this.textColor = const Color(0xDD000000), // Colors.black87
+    this.secondaryColor = const Color(0xFF757575), // Grey shade 600
+    this.highlightColor = const Color(0xFF388E3C), // Green shade 700
   });
 
   @override
@@ -399,7 +489,7 @@ class _InfoColumn extends StatelessWidget {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: highlighted ? Colors.green.shade700 : Colors.black87,
+            color: highlighted ? highlightColor : textColor,
           ),
         ),
         const SizedBox(height: 2),
@@ -407,7 +497,7 @@ class _InfoColumn extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade600,
+            color: secondaryColor,
           ),
         ),
       ],

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:ui' as ui;
 
@@ -51,6 +52,14 @@ class UserLocationLayer {
   /// Log level threshold (500 = debug, 800 = info, 1000 = error).
   static const _logLevel = 500;
 
+  /// Default animation duration for position updates.
+  static const _defaultAnimationDuration = Duration(milliseconds: 500);
+
+  // Animation state
+  Timer? _animationTimer;
+  Coordinates? _currentPosition;
+  double _currentBearing = 0;
+
   /// Creates a user location layer with the given style.
   UserLocationLayer({required this.style});
 
@@ -79,8 +88,10 @@ class UserLocationLayer {
   /// Detaches from the map controller.
   void detach() {
     dev.log('[UserLocationLayer.detach] Detaching', level: _logLevel);
+    cancelAnimation();
     _mapController = null;
     _layerAdded = false;
+    _currentPosition = null;
   }
 
   /// Updates the user location position and bearing.
@@ -88,10 +99,14 @@ class UserLocationLayer {
   /// [position] geographic coordinates of the user.
   /// [bearing] heading in degrees (0-360, where 0 = north).
   /// [accuracy] GPS accuracy in meters (for accuracy circle).
+  /// [animate] whether to animate the transition (default: true).
+  /// [duration] animation duration (default: 500ms).
   Future<void> update(
     Coordinates position,
     double bearing, {
     double accuracy = 0,
+    bool animate = true,
+    Duration? duration,
   }) async {
     if (_mapController == null || !_layerAdded) {
       dev.log(
@@ -101,6 +116,38 @@ class UserLocationLayer {
       return;
     }
 
+    // If no previous position or animation disabled, set immediately
+    if (_currentPosition == null || !animate) {
+      await _setPositionImmediate(position, bearing, accuracy);
+      return;
+    }
+
+    // Skip if distance is negligible (< 0.00001 degrees ≈ 1 meter)
+    final latDiff = (position.lat - _currentPosition!.lat).abs();
+    final lonDiff = (position.lon - _currentPosition!.lon).abs();
+    if (latDiff < 0.00001 && lonDiff < 0.00001) {
+      // Just update bearing if changed
+      if ((bearing - _currentBearing).abs() > 0.5) {
+        await _setPositionImmediate(position, bearing, accuracy);
+      }
+      return;
+    }
+
+    // Start animation
+    await _animateToPosition(
+      position,
+      bearing,
+      accuracy,
+      duration ?? _defaultAnimationDuration,
+    );
+  }
+
+  /// Sets position immediately without animation.
+  Future<void> _setPositionImmediate(
+    Coordinates position,
+    double bearing,
+    double accuracy,
+  ) async {
     // Throttle updates for performance
     final now = DateTime.now();
     if (_lastUpdate != null &&
@@ -120,8 +167,12 @@ class UserLocationLayer {
         await _mapController!.setGeoJsonSource(_kAccuracySourceId, accuracyGeoJson);
       }
 
+      // Store current state
+      _currentPosition = position;
+      _currentBearing = bearing;
+
       dev.log(
-        '[UserLocationLayer.update] '
+        '[UserLocationLayer.update] IMMEDIATE '
         'lat=${position.lat.toStringAsFixed(6)}, '
         'lon=${position.lon.toStringAsFixed(6)}, '
         'bearing=${bearing.toStringAsFixed(1)}, '
@@ -136,6 +187,108 @@ class UserLocationLayer {
         stackTrace: stack,
       );
     }
+  }
+
+  /// Animates position from current to target.
+  Future<void> _animateToPosition(
+    Coordinates targetPosition,
+    double targetBearing,
+    double accuracy,
+    Duration duration,
+  ) async {
+    // Cancel any running animation
+    _animationTimer?.cancel();
+
+    final startPosition = _currentPosition!;
+    final startBearing = _currentBearing;
+    final startTime = DateTime.now();
+
+    // Calculate bearing difference (handle wrap-around)
+    var bearingDiff = targetBearing - startBearing;
+    if (bearingDiff > 180) bearingDiff -= 360;
+    if (bearingDiff < -180) bearingDiff += 360;
+
+    dev.log(
+      '[UserLocationLayer._animateToPosition] START '
+      'from=(${startPosition.lat.toStringAsFixed(6)}, ${startPosition.lon.toStringAsFixed(6)}) '
+      'to=(${targetPosition.lat.toStringAsFixed(6)}, ${targetPosition.lon.toStringAsFixed(6)}) '
+      'bearing=$startBearing→$targetBearing '
+      'duration=${duration.inMilliseconds}ms',
+      level: _logLevel,
+    );
+
+    const frameInterval = Duration(milliseconds: 16); // ~60fps
+
+    _animationTimer = Timer.periodic(frameInterval, (timer) async {
+      if (_mapController == null || !_layerAdded) {
+        timer.cancel();
+        return;
+      }
+
+      final elapsed = DateTime.now().difference(startTime).inMilliseconds;
+      final rawProgress = elapsed / duration.inMilliseconds;
+      final progress = rawProgress.clamp(0.0, 1.0);
+
+      // Apply easing curve (ease-out for smoother deceleration)
+      final easedProgress = Curves.easeOut.transform(progress);
+
+      // Interpolate position
+      final lat = startPosition.lat +
+          (targetPosition.lat - startPosition.lat) * easedProgress;
+      final lon = startPosition.lon +
+          (targetPosition.lon - startPosition.lon) * easedProgress;
+
+      // Interpolate bearing
+      var bearing = startBearing + bearingDiff * easedProgress;
+      if (bearing < 0) bearing += 360;
+      if (bearing >= 360) bearing -= 360;
+
+      final currentPos = Coordinates(lat: lat, lon: lon);
+
+      try {
+        // Update sources
+        final locationGeoJson = _buildLocationGeoJson(currentPos, bearing);
+        await _mapController!.setGeoJsonSource(_kSourceId, locationGeoJson);
+
+        if (style.showAccuracyCircle && accuracy >= style.minAccuracyToShow) {
+          final accuracyGeoJson = _buildAccuracyGeoJson(currentPos, accuracy);
+          await _mapController!.setGeoJsonSource(_kAccuracySourceId, accuracyGeoJson);
+        }
+
+        // Update current state
+        _currentPosition = currentPos;
+        _currentBearing = bearing;
+      } catch (e) {
+        dev.log(
+          '[UserLocationLayer._animateToPosition] Frame error: $e',
+          level: 800,
+        );
+      }
+
+      // Complete animation
+      if (progress >= 1.0) {
+        timer.cancel();
+        _animationTimer = null;
+
+        // Ensure final position is exact
+        _currentPosition = targetPosition;
+        _currentBearing = targetBearing;
+
+        dev.log(
+          '[UserLocationLayer._animateToPosition] COMPLETE '
+          'lat=${targetPosition.lat.toStringAsFixed(6)}, '
+          'lon=${targetPosition.lon.toStringAsFixed(6)}, '
+          'bearing=${targetBearing.toStringAsFixed(1)}',
+          level: _logLevel,
+        );
+      }
+    });
+  }
+
+  /// Cancels any running animation.
+  void cancelAnimation() {
+    _animationTimer?.cancel();
+    _animationTimer = null;
   }
 
   /// Removes layers from the map.
@@ -165,16 +318,21 @@ class UserLocationLayer {
     }
   }
 
-  /// Resets internal state (e.g., throttle timer).
+  /// Resets internal state (e.g., throttle timer, animation).
   void reset() {
+    cancelAnimation();
     _lastUpdate = null;
+    _currentPosition = null;
+    _currentBearing = 0;
   }
 
   /// Disposes resources.
   void dispose() {
     dev.log('[UserLocationLayer.dispose] Disposing', level: _logLevel);
+    cancelAnimation();
     _mapController = null;
     _layerAdded = false;
+    _currentPosition = null;
   }
 
   // --- Private ---

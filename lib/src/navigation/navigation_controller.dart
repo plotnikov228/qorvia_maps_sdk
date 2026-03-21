@@ -38,6 +38,9 @@ class NavigationController extends ChangeNotifier {
   // ignore: unused_field
   double _distancePastStepBoundary = 0;
 
+  // Off-route logging throttle
+  DateTime? _lastOffRouteLogTime;
+
   // Multi-waypoint state
   int _currentLegIndex = 0;
   int _waypointsVisited = 0;
@@ -315,6 +318,8 @@ class NavigationController extends ChangeNotifier {
 
   void _setupLocationSubscription() {
     _locationSubscription?.cancel();
+    NavigationLogger.info(
+        'NavigationController', 'Setting up location subscription');
     _locationSubscription = _locationService.locationStream.listen(
       _onLocationUpdate,
       onError: (error, stackTrace) {
@@ -407,13 +412,6 @@ class NavigationController extends ChangeNotifier {
     final polyline = route.decodedPolyline;
     if (polyline == null || polyline.isEmpty) return;
 
-    NavigationLogger.debug('NavigationController', 'Location update', {
-      'lat': location.coordinates.lat,
-      'lon': location.coordinates.lon,
-      'speed': location.speed,
-      'accuracy': location.accuracy,
-    });
-
     // Find closest point on route
     final (closestPoint, closestIndex, distanceToRoute) =
         _findClosestPointOnRoute(location.coordinates, polyline);
@@ -423,6 +421,21 @@ class NavigationController extends ChangeNotifier {
     final isMoving = speed > options.minSpeedForOffRoute;
     final isOffRoute = isMoving && distanceToRoute > options.offRouteThreshold;
     final wasOffRoute = _state!.isOffRoute;
+
+    // Log off-route check every 3 seconds to help diagnose reroute issues
+    final now = DateTime.now();
+    if (_lastOffRouteLogTime == null ||
+        now.difference(_lastOffRouteLogTime!).inSeconds >= 3) {
+      _lastOffRouteLogTime = now;
+      NavigationLogger.info('NavigationController', 'Off-route check', {
+        'distanceToRoute': distanceToRoute.toStringAsFixed(1),
+        'offRouteThreshold': options.offRouteThreshold,
+        'speed': speed.toStringAsFixed(2),
+        'minSpeedForOffRoute': options.minSpeedForOffRoute,
+        'isMoving': isMoving,
+        'isOffRoute': isOffRoute,
+      });
+    }
 
     if (isOffRoute && !wasOffRoute) {
       NavigationLogger.warn('NavigationController', 'Off-route detected', {
@@ -486,24 +499,19 @@ class NavigationController extends ChangeNotifier {
       nextWaypointDistance = legDistanceRemaining.clamp(0, double.infinity);
     }
 
-    // Arrival check - last step OR very close to destination
+    // Arrival check - multiple conditions for robust detection
     final totalSteps = steps.length;
     final isLastStep = rawStepIndex >= totalSteps - 1;
-    // Fallback: if within 30 meters of destination, consider arrived
-    // This handles cases where step index doesn't advance properly
-    final isVeryCloseToDestination = distanceRemaining < 30.0;
-    final hasArrived = isLastStep || isVeryCloseToDestination;
+    final isWithinArrivalThreshold = distanceRemaining < options.arrivalThreshold;
 
-    // Log arrival conditions
-    if (isLastStep || isVeryCloseToDestination) {
-      NavigationLogger.info('NavigationController', 'Near arrival', {
-        'distanceRemaining': distanceRemaining.toStringAsFixed(1),
-        'stepIndex': rawStepIndex,
-        'totalSteps': totalSteps,
-        'isLastStep': isLastStep,
-        'isVeryCloseToDestination': isVeryCloseToDestination,
-      });
-    }
+    // Extended arrival: on penultimate step, close to destination, and stopped
+    // This handles GPS inaccuracy when user has physically arrived
+    final isPenultimateStep = rawStepIndex == totalSteps - 2;
+    final isNearDestination = distanceRemaining < 50.0; // Extended radius
+    final isStopped = speed < 1.0;
+    final extendedArrival = isPenultimateStep && isNearDestination && isStopped;
+
+    final hasArrived = isLastStep || isWithinArrivalThreshold || extendedArrival;
 
     if (hasArrived && !_state!.hasArrived) {
       NavigationLogger.info('NavigationController', '=== ARRIVAL DETECTED ===', {
@@ -735,12 +743,6 @@ class NavigationController extends ChangeNotifier {
     final distancePastBoundary = distanceCovered - boundaryDistance;
 
     if (distancePastBoundary >= options.stepTransitionHysteresis) {
-      NavigationLogger.debug(
-          'NavigationController', 'Step confirmed by hysteresis', {
-        'from': _confirmedStepIndex,
-        'to': rawStepIndex,
-        'distancePast': distancePastBoundary,
-      });
       _confirmedStepIndex = rawStepIndex;
       _distancePastStepBoundary = distancePastBoundary;
     }

@@ -7,6 +7,7 @@ import '../search/models/selected_point.dart';
 import '../search/models/travel_mode.dart';
 
 /// Service for managing route requests and route line display.
+/// Currently uses online routing only.
 class RouteService {
   final QorviaMapsClient _client;
 
@@ -20,6 +21,7 @@ class RouteService {
     required TravelMode mode,
     List<SelectedPoint>? waypoints,
     bool includeSteps = false,
+    String? language,
   }) async {
     _log('Requesting route', {
       'from': from.label,
@@ -29,19 +31,27 @@ class RouteService {
       'includeSteps': includeSteps,
     });
 
-    try {
-      final waypointCoords = waypoints
-          ?.where((wp) => wp.isSet)
-          .map((wp) => wp.coordinates)
-          .toList();
+    // Check connectivity
+    if (!QorviaMapsSDK.isOnline) {
+      _log('No internet connection');
+      throw const NetworkException(
+        message: 'No internet connection. Routing requires internet.',
+      );
+    }
 
+    final waypointCoords = waypoints
+        ?.where((wp) => wp.isSet)
+        .map((wp) => wp.coordinates)
+        .toList();
+
+    try {
       final route = await _client.route(
         from: from.coordinates,
         to: to.coordinates,
         waypoints: waypointCoords,
         mode: mode.transportMode,
         steps: includeSteps,
-        language: 'ru',
+        language: language ?? 'ru',
       );
 
       _log('Route received', {
@@ -84,7 +94,7 @@ class RouteService {
         Marker(
           id: 'route_start',
           position: polyline.first,
-          icon: NumberedMarkerIcon.letter('A', textColor: Colors.indigoAccent)
+          icon: NumberedMarkerIcon.letter('A', textColor: Colors.indigoAccent),
         ),
       );
       markers.add(
@@ -97,6 +107,47 @@ class RouteService {
     }
 
     return markers;
+  }
+
+  /// Requests a navigation route with turn-by-turn instructions.
+  Future<RouteResponse> requestNavigationRoute({
+    required Coordinates from,
+    required Coordinates to,
+    required TravelMode mode,
+    List<Coordinates>? waypoints,
+    String? language,
+  }) async {
+    _log('Requesting navigation route', {
+      'from': '${from.lat}, ${from.lon}',
+      'to': '${to.lat}, ${to.lon}',
+      'mode': mode.name,
+      'waypoints': waypoints?.length ?? 0,
+    });
+
+    // Check connectivity
+    if (!QorviaMapsSDK.isOnline) {
+      _log('No internet connection');
+      throw const NetworkException(
+        message: 'No internet connection. Navigation requires internet.',
+      );
+    }
+
+    final route = await _client.route(
+      from: from,
+      to: to,
+      waypoints: waypoints,
+      mode: mode.transportMode,
+      steps: true,
+      language: language ?? 'ru',
+    );
+
+    _log('Navigation route received', {
+      'distance': route.distanceMeters,
+      'duration': route.durationSeconds,
+      'stepsCount': route.steps?.length ?? 0,
+    });
+
+    return route;
   }
 
   void _log(String message, [Map<String, dynamic>? data]) {

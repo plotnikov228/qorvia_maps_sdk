@@ -5,7 +5,9 @@ import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart' hide SearchPanel;
 
 import '../../app/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../shared/services/app_location_service.dart';
+import '../../shared/services/offline_geocoding_helper.dart';
 import '../map/map_screen.dart';
 import '../navigation/navigation_screen.dart';
 import '../route/route_service.dart';
@@ -17,7 +19,6 @@ import '../search/search_panel.dart';
 import '../search/widgets/expandable_bottom_panel.dart';
 import '../settings/settings_screen.dart';
 import '../settings/settings_service.dart';
-import 'widgets/app_bar_logo.dart';
 import 'widgets/map_pick_hint.dart';
 
 /// Main home screen integrating map, search, and navigation.
@@ -93,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _moveToLocation(location.coordinates);
       await _setFromCurrentLocation(location.coordinates);
     } else if (mounted) {
-      _showMessage('Не удалось получить текущую локацию');
+      _showMessage(AppLocalizations.of(context).failedToGetLocation);
     }
 
     if (mounted) setState(() {});
@@ -124,15 +125,17 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     });
 
-    // Fetch address in background
+    // Fetch address in background (offline-first)
     String label = coordsLabel;
     try {
-      final reverse = await QorviaMapsSDK.instance.client.reverse(
+      final reverse = await OfflineGeocodingHelper.reverse(
         coordinates: coordinates,
-        language: 'ru',
+        language: Localizations.localeOf(context).languageCode,
       );
-      label = reverse.displayName;
-      _log('Reverse geocode success', {'label': label});
+      if (reverse != null) {
+        label = reverse.displayName;
+        _log('Reverse geocode success', {'label': label});
+      }
     } catch (e) {
       _log('Reverse geocode failed', {'error': e.toString()});
       // Keep coordinates as fallback
@@ -197,12 +200,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _resolveAddressInBackground(Coordinates coordinates, ActiveField targetField) {
-    // Run in background - doesn't block UI
-    QorviaMapsSDK.instance.client.reverse(
+    // Run in background - doesn't block UI (offline-first)
+    OfflineGeocodingHelper.reverse(
       coordinates: coordinates,
-      language: 'ru',
+      language: Localizations.localeOf(context).languageCode,
     ).then((reverse) {
-      if (!mounted) return;
+      if (!mounted || reverse == null) return;
 
       // Update label with resolved address and clear loading state
       final currentPoint = targetField == ActiveField.from ? _fromPoint : _toPoint;
@@ -288,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (error) {
-      _showMessage('Ошибка построения маршрута: $error');
+      _showMessage('${AppLocalizations.of(context).routeError}: $error');
     } finally {
       if (mounted) {
         setState(() => _isRoutingPreview = false);
@@ -338,13 +341,12 @@ class _HomeScreenState extends State<HomeScreen> {
           .map((wp) => wp.coordinates)
           .toList();
 
-      final route = await QorviaMapsSDK.instance.client.route(
+      final route = await _routeService.requestNavigationRoute(
         from: startPoint,
         to: _toPoint!.coordinates,
         waypoints: waypointCoords.isNotEmpty ? waypointCoords : null,
-        mode: _travelMode.transportMode,
-        steps: true,
-        language: 'ru',
+        mode: _travelMode,
+        language: Localizations.localeOf(context).languageCode,
       );
 
       _log('Navigation route received', {
@@ -358,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _updateMarkersFromRoute();
       });
     } catch (error) {
-      _showMessage('Ошибка построения маршрута: $error');
+      _showMessage('${AppLocalizations.of(context).routeError}: $error');
     } finally {
       if (mounted) {
         setState(() => _isRouting = false);
@@ -383,9 +385,9 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _isNavigationMode = false);
 
       if (reason == NavigationEndReason.error) {
-        _showMessage('Ошибка навигации. Проверьте разрешения геолокации.');
+        _showMessage(AppLocalizations.of(context).navigationError);
       } else if (reason == NavigationEndReason.arrived) {
-        _showMessage('Вы прибыли!');
+        _showMessage(AppLocalizations.of(context).youHaveArrived);
       }
 
       // Center map on last known location
@@ -410,13 +412,12 @@ class _HomeScreenState extends State<HomeScreen> {
         .map((wp) => wp.coordinates)
         .toList();
 
-    return await QorviaMapsSDK.instance.client.route(
+    return await _routeService.requestNavigationRoute(
       from: from,
       to: to,
       waypoints: waypointCoords.isNotEmpty ? waypointCoords : null,
-      mode: _travelMode.transportMode,
-      steps: true,
-      language: 'ru',
+      mode: _travelMode,
+      language: Localizations.localeOf(context).languageCode,
     );
   }
 
@@ -458,16 +459,17 @@ class _HomeScreenState extends State<HomeScreen> {
       _isMapPickMode = true;
     });
 
+    final l10n = AppLocalizations.of(context);
     String message;
     switch (field) {
       case ActiveField.from:
-        message = 'Выберите точку отправления на карте';
+        message = l10n.selectDeparturePoint;
         break;
       case ActiveField.to:
-        message = 'Выберите точку прибытия на карте';
+        message = l10n.selectDestinationPoint;
         break;
       case ActiveField.waypoint:
-        message = 'Выберите промежуточную точку на карте';
+        message = l10n.selectWaypoint;
         break;
     }
     _showMessage(message);
@@ -531,7 +533,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final statusBarPadding = MediaQuery.of(context).padding.top;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     // Calculate panel heights with proper clamping
     final minPanelHeight = AppConstants.panelMinHeight;
@@ -553,28 +554,18 @@ class _HomeScreenState extends State<HomeScreen> {
     // Navigation mode: full screen navigation
     if (_isNavigationMode && _activeRoute != null) {
       return Scaffold(
-        body: Stack(
-          children: [
-            NavigationScreen(
-              key: const ValueKey('nav'),
-              route: _activeRoute!,
-              initialLocation: _locationService.lastLocationData,
-              travelMode: _travelMode,
-              onStateChanged: (state) {
-                if (state.currentLocation != null) {
-                  _locationService.updateLocation(state.currentLocation!);
-                }
-              },
-              onNavigationEnd: _exitNavigationMode,
-              onReroute: _onReroute,
-            ),
-            // My location FAB in navigation mode
-            Positioned(
-              right: 16,
-              bottom: bottomPadding + 16,
-              child: _buildLocationFab(),
-            ),
-          ],
+        body: NavigationScreen(
+          key: const ValueKey('nav'),
+          route: _activeRoute!,
+          initialLocation: _locationService.lastLocationData,
+          travelMode: _travelMode,
+          onStateChanged: (state) {
+            if (state.currentLocation != null) {
+              _locationService.updateLocation(state.currentLocation!);
+            }
+          },
+          onNavigationEnd: _exitNavigationMode,
+          onReroute: _onReroute,
         ),
       );
     }
@@ -631,6 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
                 // My location FAB - positioned at bottom of map area
+                if(!_isNavigationMode)
                 Positioned(
                   right: 16,
                   bottom: 16,

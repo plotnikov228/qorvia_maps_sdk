@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart';
 
 import '../search/models/travel_mode.dart';
+import 'widgets/custom_eta_panel.dart';
 
 /// Callback for requesting a new route during navigation.
 typedef OnRerouteCallback = Future<RouteResponse> Function(
@@ -99,12 +100,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
     // Default implementation using SDK client
     final client = QorviaMapsSDK.instance.client;
+    // Use system language for route instructions
+    final locale = Localizations.localeOf(context);
     final route = await client.route(
       from: from,
       to: to,
       mode: widget.travelMode.transportMode,
       steps: true,
-      language: 'ru',
+      language: locale.languageCode,
     );
     return route;
   }
@@ -116,6 +119,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get current locale for voice guidance
+    final locale = Localizations.localeOf(context);
+    final voiceLanguage = locale.languageCode == 'ru' ? 'ru-RU' : 'en-US';
+
     return NavigationView(
       route: widget.route,
       initialLocation: widget.initialLocation,
@@ -129,13 +136,17 @@ class _NavigationScreenState extends State<NavigationScreen> {
         routeLineWidth: 7,
         widgetsConfig: NavigationWidgetsConfig(
 
+          etaWidgetBuilder: (data, onClose) => CustomEtaPanel(
+            data: data,
+            onClose: onClose,
+          ),
         ),
         trackingMode: CameraTrackingMode.followWithBearing,
         showNextTurnPanel: true,
         enableVoiceInstructions: true,
         voiceGuidanceOptions: VoiceGuidanceOptions(
           enabled: true,
-          language: 'ru-RU',
+          language: voiceLanguage,
         ),
       ),
       styleUrlFallbacks: const [

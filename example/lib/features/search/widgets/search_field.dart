@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/theme/app_colors.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// Modern search input field with glassmorphism-inspired design.
 class SearchField extends StatefulWidget {
@@ -432,7 +433,7 @@ class _MapSelectButtonState extends State<_MapSelectButton>
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Карта',
+                    AppLocalizations.of(context).map,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

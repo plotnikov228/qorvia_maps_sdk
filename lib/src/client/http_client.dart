@@ -23,7 +23,9 @@ class QorviaMapsHttpClient {
     _dio.interceptors.add(_BundleIdInterceptor(_config.bundleId));
     _dio.interceptors.add(_AuthInterceptor(_config.apiKey));
 
-    if (_config.sendTimeHeaders) {
+    // Time headers are only sent when autoTheme is enabled.
+    // When autoTheme=false, server returns both day and night URLs.
+    if (_config.sendTimeHeaders && _config.autoTheme) {
       _dio.interceptors.add(_TimeHeaderInterceptor());
     }
 

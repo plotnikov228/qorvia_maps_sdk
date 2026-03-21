@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:qorvia_maps_sdk/qorvia_maps_sdk.dart';
-import '../navigation_logger.dart';
-import '../navigation_state.dart';
-import 'lanes_indicator.dart';
-import 'maneuver_icons.dart';
-import 'traffic_signal_indicator.dart';
 
 /// Default blue color for turn panel (Yandex Navigator style).
 const Color kDefaultTurnPanelBlue = RouteColors.primary;
@@ -42,14 +37,6 @@ class NextTurnPanel extends StatelessWidget {
     // Prefer verbalDistance if available, otherwise use formatted distance
     final displayDistance =
         step.verbalDistance ?? state.formattedDistanceToManeuver;
-
-    NavigationLogger.debug('NextTurnPanel', 'Building panel', {
-      'maneuver': step.maneuver,
-      'distance': displayDistance,
-      'roadName': step.name,
-      'hasLanes': step.lanes.isNotEmpty,
-      'hasTrafficSignal': step.hasTrafficSignal,
-    });
 
     final hasRoadName = step.name != null && step.name!.isNotEmpty;
     final hasLanes = step.lanes.isNotEmpty;

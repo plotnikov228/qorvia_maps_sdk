@@ -68,6 +68,62 @@ class NavigationWidgetColors {
   /// Default: Gray (#BDBDBD).
   final Color routeProgressTraveled;
 
+  // === ETA Panel Colors ===
+
+  /// Background color for the ETA panel.
+  ///
+  /// Default: White.
+  final Color etaPanelBackground;
+
+  /// Primary text color for the ETA panel (values like time, distance).
+  ///
+  /// Default: Black87.
+  final Color etaPanelText;
+
+  /// Secondary text color for the ETA panel (labels like "Осталось", "Прибытие").
+  ///
+  /// Default: Grey shade 600.
+  final Color etaPanelSecondary;
+
+  /// Divider color between info columns in ETA panel.
+  ///
+  /// Default: Grey shade 300.
+  final Color etaPanelDivider;
+
+  /// Highlighted text color in ETA panel (e.g., arrival time).
+  ///
+  /// Default: Green shade 700.
+  final Color etaPanelHighlight;
+
+  // === Exit Button Colors ===
+
+  /// Background color for the exit button.
+  ///
+  /// Default: Red shade 50.
+  final Color exitButtonBackground;
+
+  /// Border color for the exit button.
+  ///
+  /// Default: Red shade 200.
+  final Color exitButtonBorder;
+
+  /// Text and icon color for the exit button.
+  ///
+  /// Default: Red shade 700.
+  final Color exitButtonText;
+
+  // === Recenter Button Colors ===
+
+  /// Background color for the recenter button.
+  ///
+  /// Default: White.
+  final Color recenterBackground;
+
+  /// Icon color for the recenter button.
+  ///
+  /// Default: Blue.
+  final Color recenterIcon;
+
   const NavigationWidgetColors({
     this.turnPanelBackground = kDefaultTurnPanelBlue,
     this.turnPanelText = Colors.white,
@@ -77,6 +133,19 @@ class NavigationWidgetColors {
     this.speedLimitBorder = kDefaultSpeedLimitBorderColor,
     this.routeProgressActive = kDefaultTurnPanelBlue,
     this.routeProgressTraveled = const Color(0xFFBDBDBD),
+    // ETA Panel defaults
+    this.etaPanelBackground = Colors.white,
+    this.etaPanelText = const Color(0xDD000000), // Colors.black87
+    this.etaPanelSecondary = const Color(0xFF757575), // Grey shade 600
+    this.etaPanelDivider = const Color(0xFFE0E0E0), // Grey shade 300
+    this.etaPanelHighlight = const Color(0xFF388E3C), // Green shade 700
+    // Exit Button defaults
+    this.exitButtonBackground = const Color(0xFFFFEBEE), // Red shade 50
+    this.exitButtonBorder = const Color(0xFFEF9A9A), // Red shade 200
+    this.exitButtonText = const Color(0xFFD32F2F), // Red shade 700
+    // Recenter Button defaults
+    this.recenterBackground = Colors.white,
+    this.recenterIcon = const Color(0xFF2196F3), // Colors.blue
   });
 
   /// Creates a copy with modified properties.
@@ -89,6 +158,16 @@ class NavigationWidgetColors {
     Color? speedLimitBorder,
     Color? routeProgressActive,
     Color? routeProgressTraveled,
+    Color? etaPanelBackground,
+    Color? etaPanelText,
+    Color? etaPanelSecondary,
+    Color? etaPanelDivider,
+    Color? etaPanelHighlight,
+    Color? exitButtonBackground,
+    Color? exitButtonBorder,
+    Color? exitButtonText,
+    Color? recenterBackground,
+    Color? recenterIcon,
   }) {
     return NavigationWidgetColors(
       turnPanelBackground: turnPanelBackground ?? this.turnPanelBackground,
@@ -99,6 +178,16 @@ class NavigationWidgetColors {
       speedLimitBorder: speedLimitBorder ?? this.speedLimitBorder,
       routeProgressActive: routeProgressActive ?? this.routeProgressActive,
       routeProgressTraveled: routeProgressTraveled ?? this.routeProgressTraveled,
+      etaPanelBackground: etaPanelBackground ?? this.etaPanelBackground,
+      etaPanelText: etaPanelText ?? this.etaPanelText,
+      etaPanelSecondary: etaPanelSecondary ?? this.etaPanelSecondary,
+      etaPanelDivider: etaPanelDivider ?? this.etaPanelDivider,
+      etaPanelHighlight: etaPanelHighlight ?? this.etaPanelHighlight,
+      exitButtonBackground: exitButtonBackground ?? this.exitButtonBackground,
+      exitButtonBorder: exitButtonBorder ?? this.exitButtonBorder,
+      exitButtonText: exitButtonText ?? this.exitButtonText,
+      recenterBackground: recenterBackground ?? this.recenterBackground,
+      recenterIcon: recenterIcon ?? this.recenterIcon,
     );
   }
 

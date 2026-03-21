@@ -13,6 +13,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/coordinates.dart';
 import '../models/route/route_response.dart';
 import '../markers/marker.dart';
+import '../sdk_initializer.dart';
 import '../markers/marker_icon.dart';
 import '../markers/cluster/marker_cluster.dart';
 import '../route_display/route_line.dart';
@@ -40,6 +41,13 @@ class QorviaMapController extends ChangeNotifier {
   final Map<String, String> _symbolToMarkerId = {};
   final Map<String, Line> _routeLines = {};
   final Set<String> _registeredImages = {};
+
+  // Original marker/route data for restoration after style change
+  final Map<String, Marker> _markerData = {};
+  final Map<String, RouteLine> _routeLineData = {};
+
+  // Theme tracking
+  String? _currentStyleUrl;
   sdk.CameraPosition? _currentCameraPosition;
   Dio? _sharedDio;
 
@@ -108,6 +116,9 @@ class QorviaMapController extends ChangeNotifier {
     _symbolToMarkerId.clear();
     _registeredImages.clear();
     _routeLines.clear();
+    _markerData.clear();
+    _routeLineData.clear();
+    _iconRotationAlignmentConfigured = false;
 
     _mapController = controller;
     // Use immediate notify for critical state changes
@@ -520,6 +531,7 @@ class QorviaMapController extends ChangeNotifier {
 
     _markers[marker.id] = symbol;
     _symbolToMarkerId[symbol.id] = marker.id;
+    _markerData[marker.id] = marker; // Store original data for restoration
     notifyListeners();
   }
 
@@ -595,6 +607,7 @@ class QorviaMapController extends ChangeNotifier {
       final symbol = symbols[i];
       _markers[markerId] = symbol;
       _symbolToMarkerId[symbol.id] = markerId;
+      _markerData[markerId] = markers[i]; // Store original data for restoration
     }
 
     stopwatch.stop();
@@ -656,6 +669,7 @@ class QorviaMapController extends ChangeNotifier {
     final symbolsToRemove = <Symbol>[];
     for (final markerId in markerIds) {
       final symbol = _markers.remove(markerId);
+      _markerData.remove(markerId); // Remove original data
       if (symbol != null) {
         _symbolToMarkerId.remove(symbol.id);
         symbolsToRemove.add(symbol);
@@ -704,6 +718,7 @@ class QorviaMapController extends ChangeNotifier {
     if (controller == null) return;
 
     final symbol = _markers.remove(markerId);
+    _markerData.remove(markerId); // Remove original data
     if (symbol != null) {
       _symbolToMarkerId.remove(symbol.id);
       await controller.removeSymbol(symbol);
@@ -713,7 +728,10 @@ class QorviaMapController extends ChangeNotifier {
 
   /// Removes all markers from the map using batch operation.
   /// Uses clearSymbols() for optimal performance.
-  Future<void> clearMarkers() async {
+  ///
+  /// [clearData] - If true, also clears stored marker data (default: true).
+  /// Set to false when clearing for style change to preserve data for restoration.
+  Future<void> clearMarkers({bool clearData = true}) async {
     final controller = _mapController;
     if (controller == null) return;
 
@@ -721,11 +739,14 @@ class QorviaMapController extends ChangeNotifier {
     if (count == 0) return;
 
     final stopwatch = Stopwatch()..start();
-    _log(_LogLevel.debug, 'clearMarkers START', {'count': count});
+    _log(_LogLevel.debug, 'clearMarkers START', {'count': count, 'clearData': clearData});
 
     // Clear internal state first
     _markers.clear();
     _symbolToMarkerId.clear();
+    if (clearData) {
+      _markerData.clear();
+    }
 
     // Single platform call to clear all symbols
     await controller.clearSymbols();
@@ -757,6 +778,195 @@ class QorviaMapController extends ChangeNotifier {
       );
     }
   }
+
+  // Active marker animations - used to cancel previous animation when new one starts
+  final Map<String, Timer> _markerAnimations = {};
+
+  /// Animates a marker's position smoothly from current to new position.
+  ///
+  /// Uses linear interpolation with configurable duration and easing curve.
+  /// If animation is already running for this marker, it will be cancelled
+  /// and new animation will start from current position.
+  ///
+  /// [markerId] - ID of the marker to animate
+  /// [newPosition] - Target position
+  /// [rotation] - Optional new rotation angle in degrees (0-360, where 0 is north)
+  /// [duration] - Animation duration (default 300ms)
+  /// [curve] - Easing curve (default Curves.easeInOut)
+  Future<void> animateMarkerPosition(
+    String markerId,
+    Coordinates newPosition, {
+    double? rotation,
+    Duration duration = const Duration(milliseconds: 300),
+    Curve curve = Curves.easeInOut,
+  }) async {
+    final controller = _mapController;
+    if (controller == null) {
+      _log(_LogLevel.debug, 'animateMarkerPosition: controller is null', {'markerId': markerId});
+      return;
+    }
+
+    final symbol = _markers[markerId];
+    if (symbol == null) {
+      _log(_LogLevel.debug, 'animateMarkerPosition: marker not found', {'markerId': markerId});
+      return;
+    }
+
+    final startGeometry = symbol.options.geometry;
+    if (startGeometry == null) {
+      _log(_LogLevel.debug, 'animateMarkerPosition: no start geometry', {'markerId': markerId});
+      return;
+    }
+
+    // Cancel any existing animation for this marker
+    _markerAnimations[markerId]?.cancel();
+
+    final startLat = startGeometry.latitude;
+    final startLon = startGeometry.longitude;
+    final endLat = newPosition.lat;
+    final endLon = newPosition.lon;
+
+    // Skip animation if distance is negligible (< 0.00001 degrees ≈ 1 meter)
+    final latDiff = (endLat - startLat).abs();
+    final lonDiff = (endLon - startLon).abs();
+    if (latDiff < 0.00001 && lonDiff < 0.00001) {
+      _log(_LogLevel.debug, 'animateMarkerPosition: skipping - distance too small', {'markerId': markerId});
+      return;
+    }
+
+    _log(_LogLevel.debug, 'animateMarkerPosition: START', {
+      'markerId': markerId,
+      'from': '(${startLat.toStringAsFixed(6)}, ${startLon.toStringAsFixed(6)})',
+      'to': '(${endLat.toStringAsFixed(6)}, ${endLon.toStringAsFixed(6)})',
+      'rotation': rotation?.toStringAsFixed(1),
+      'duration': '${duration.inMilliseconds}ms',
+    });
+
+    // Use ~60fps for smooth animation
+    const frameInterval = Duration(milliseconds: 16);
+    final totalSteps = (duration.inMilliseconds / frameInterval.inMilliseconds).ceil();
+    var currentStep = 0;
+    final startTime = DateTime.now();
+
+    final timer = Timer.periodic(frameInterval, (timer) async {
+      currentStep++;
+
+      // Calculate progress using elapsed time for more accurate timing
+      final elapsed = DateTime.now().difference(startTime).inMilliseconds;
+      final rawProgress = elapsed / duration.inMilliseconds;
+      final progress = rawProgress.clamp(0.0, 1.0);
+
+      // Apply easing curve
+      final easedProgress = curve.transform(progress);
+
+      // Interpolate position
+      final lat = startLat + (endLat - startLat) * easedProgress;
+      final lon = startLon + (endLon - startLon) * easedProgress;
+
+      // Update symbol position (and rotation if provided)
+      try {
+        await controller.updateSymbol(
+          symbol,
+          SymbolOptions(
+            geometry: LatLng(lat, lon),
+            iconRotate: rotation,
+          ),
+        );
+      } catch (e) {
+        _log(_LogLevel.debug, 'animateMarkerPosition: updateSymbol error', {'error': e.toString()});
+        timer.cancel();
+        _markerAnimations.remove(markerId);
+        return;
+      }
+
+      // Complete animation
+      if (progress >= 1.0 || currentStep >= totalSteps) {
+        timer.cancel();
+        _markerAnimations.remove(markerId);
+        _log(_LogLevel.debug, 'animateMarkerPosition: COMPLETE', {
+          'markerId': markerId,
+          'steps': currentStep,
+          'actualDuration': '${elapsed}ms',
+        });
+      }
+    });
+
+    _markerAnimations[markerId] = timer;
+  }
+
+  /// Cancels any running animation for a marker.
+  void cancelMarkerAnimation(String markerId) {
+    final timer = _markerAnimations.remove(markerId);
+    if (timer != null) {
+      timer.cancel();
+      _log(_LogLevel.debug, 'cancelMarkerAnimation', {'markerId': markerId});
+    }
+  }
+
+  /// Cancels all running marker animations.
+  void cancelAllMarkerAnimations() {
+    for (final timer in _markerAnimations.values) {
+      timer.cancel();
+    }
+    final count = _markerAnimations.length;
+    _markerAnimations.clear();
+    if (count > 0) {
+      _log(_LogLevel.debug, 'cancelAllMarkerAnimations', {'cancelled': count});
+    }
+  }
+
+  // Track whether icon rotation alignment has been configured
+  bool _iconRotationAlignmentConfigured = false;
+
+  /// Configures icon rotation alignment for the symbol layer.
+  ///
+  /// [alignment] can be 'map' (rotate relative to map/north) or 'viewport'
+  /// (rotate relative to camera/screen, default).
+  ///
+  /// When set to 'map', marker icons rotate with the map, so a marker
+  /// pointing north will always point north regardless of camera rotation.
+  ///
+  /// When set to 'viewport', marker icons stay fixed relative to the screen,
+  /// so they rotate when the camera rotates.
+  ///
+  /// Must be called after at least one marker has been added (which initializes
+  /// the symbol layer). Best practice is to call this once after adding the
+  /// first batch of markers.
+  Future<void> setIconRotationAlignment(String alignment) async {
+    final controller = _mapController;
+    if (controller == null) {
+      _log(_LogLevel.debug, 'setIconRotationAlignment: controller is null');
+      return;
+    }
+
+    final symbolManager = controller.symbolManager;
+    if (symbolManager == null || !symbolManager.isInitialized) {
+      _log(_LogLevel.debug, 'setIconRotationAlignment: symbolManager not initialized');
+      return;
+    }
+
+    try {
+      final layerIds = symbolManager.layerIds;
+      _log(_LogLevel.info, 'setIconRotationAlignment', {
+        'alignment': alignment,
+        'layers': layerIds,
+      });
+
+      for (final layerId in layerIds) {
+        await controller.setLayerProperties(
+          layerId,
+          SymbolLayerProperties(iconRotationAlignment: alignment),
+        );
+      }
+
+      _iconRotationAlignmentConfigured = true;
+    } catch (e) {
+      _log(_LogLevel.debug, 'setIconRotationAlignment: error', {'error': e.toString()});
+    }
+  }
+
+  /// Whether icon rotation alignment has been configured.
+  bool get isIconRotationAlignmentConfigured => _iconRotationAlignmentConfigured;
 
   /// Resolves an icon to its base type for native rendering.
   /// AnimatedMarkerIcon and CachedMarkerIcon are converted to their underlying icons.
@@ -916,6 +1126,12 @@ class QorviaMapController extends ChangeNotifier {
 
   // ==================== ROUTES ====================
 
+  // Active route animations - used to cancel previous animation when new one starts
+  final Map<String, Timer> _routeAnimations = {};
+
+  // Track current animated start positions for smooth continuous animation
+  final Map<String, Coordinates> _animatedRouteStarts = {};
+
   /// Displays a route on the map.
   Future<void> displayRoute(
     RouteResponse route, {
@@ -953,15 +1169,93 @@ class QorviaMapController extends ChangeNotifier {
     );
 
     _routeLines[routeLine.id] = line;
+    _routeLineData[routeLine.id] = routeLine; // Store original data for restoration
     notifyListeners();
   }
+
+  /// Updates a route line's coordinates without removing and recreating it.
+  ///
+  /// More efficient than displayRouteLine for frequent updates (e.g., live route tracking).
+  /// If route doesn't exist, it will be created with default options.
+  ///
+  /// [routeId] - ID of the route to update
+  /// [newCoordinates] - New list of coordinates for the route
+  /// [options] - Optional new style options (if null, keeps existing)
+  Future<void> updateRouteLine(
+    String routeId,
+    List<Coordinates> newCoordinates, {
+    RouteLineOptions? options,
+  }) async {
+    final controller = _mapController;
+    if (controller == null) {
+      _log(_LogLevel.debug, 'updateRouteLine: controller is null', {'routeId': routeId});
+      return;
+    }
+
+    if (newCoordinates.isEmpty) {
+      _log(_LogLevel.debug, 'updateRouteLine: empty coordinates', {'routeId': routeId});
+      return;
+    }
+
+    final existingLine = _routeLines[routeId];
+
+    if (existingLine != null) {
+      // Update existing line geometry
+      _log(_LogLevel.debug, 'updateRouteLine: updating existing', {
+        'routeId': routeId,
+        'points': newCoordinates.length,
+      });
+
+      final lineOptions = LineOptions(
+        geometry: newCoordinates.map((c) => LatLng(c.lat, c.lon)).toList(),
+      );
+
+      // Add style options if provided
+      final updateOptions = options != null
+          ? LineOptions(
+              geometry: lineOptions.geometry,
+              lineColor: _colorToHex(options.color),
+              lineWidth: options.width,
+              lineOpacity: options.opacity,
+            )
+          : lineOptions;
+
+      await controller.updateLine(existingLine, updateOptions);
+    } else {
+      // Create new line if doesn't exist
+      _log(_LogLevel.debug, 'updateRouteLine: creating new', {
+        'routeId': routeId,
+        'points': newCoordinates.length,
+      });
+
+      final routeOptions = options ?? RouteLineOptions.primary();
+      final line = await controller.addLine(
+        LineOptions(
+          geometry: newCoordinates.map((c) => LatLng(c.lat, c.lon)).toList(),
+          lineColor: _colorToHex(routeOptions.color),
+          lineWidth: routeOptions.width,
+          lineOpacity: routeOptions.opacity,
+        ),
+      );
+      _routeLines[routeId] = line;
+      notifyListeners();
+    }
+  }
+
+  /// Checks if a route with the given ID exists in the map.
+  bool hasRoute(String routeId) => _routeLines.containsKey(routeId);
 
   /// Removes a route from the map.
   Future<void> removeRoute(String routeId) async {
     final controller = _mapController;
     if (controller == null) return;
 
+    // Cancel any running animation and clear animated state
+    cancelRouteAnimation(routeId);
+    clearAnimatedRouteStart(routeId);
+
     final line = _routeLines.remove(routeId);
+    _routeLineData.remove(routeId); // Remove original data
     if (line != null) {
       await controller.removeLine(line);
       notifyListeners();
@@ -969,13 +1263,23 @@ class QorviaMapController extends ChangeNotifier {
   }
 
   /// Removes all routes from the map.
-  Future<void> clearRoutes() async {
+  ///
+  /// [clearData] - If true, also clears stored route data (default: true).
+  /// Set to false when clearing for style change to preserve data for restoration.
+  Future<void> clearRoutes({bool clearData = true}) async {
     final controller = _mapController;
     if (controller == null) return;
+
+    // Cancel all route animations and clear animated states
+    cancelAllRouteAnimations();
+    clearAllAnimatedRouteStarts();
 
     // Copy values to avoid concurrent modification
     final lines = _routeLines.values.toList();
     _routeLines.clear();
+    if (clearData) {
+      _routeLineData.clear();
+    }
 
     for (final line in lines) {
       await controller.removeLine(line);
@@ -995,6 +1299,227 @@ class QorviaMapController extends ChangeNotifier {
       coordinates,
       padding: padding.left,
     ));
+  }
+
+  /// Animates a route line's start position smoothly from current to new position.
+  ///
+  /// This method only animates the FIRST coordinate of the route, keeping
+  /// all other coordinates intact. Useful for making a route "follow" a
+  /// moving marker (e.g., helper position in help request sessions).
+  ///
+  /// Uses linear interpolation with configurable duration and easing curve.
+  /// If animation is already running for this route, it will be cancelled
+  /// and new animation will start from current animated position.
+  ///
+  /// [routeId] - ID of the route to animate
+  /// [newStartPosition] - Target position for the route start
+  /// [duration] - Animation duration (default 300ms)
+  /// [curve] - Easing curve (default Curves.easeInOut)
+  Future<void> animateRouteLineStart(
+    String routeId,
+    Coordinates newStartPosition, {
+    Duration duration = const Duration(milliseconds: 300),
+    Curve curve = Curves.easeInOut,
+  }) async {
+    final controller = _mapController;
+    if (controller == null) {
+      _log(_LogLevel.debug, 'animateRouteLineStart: controller is null', {'routeId': routeId});
+      return;
+    }
+
+    final routeData = _routeLineData[routeId];
+    if (routeData == null || routeData.coordinates.isEmpty) {
+      _log(_LogLevel.debug, 'animateRouteLineStart: route not found or empty', {'routeId': routeId});
+      return;
+    }
+
+    final existingLine = _routeLines[routeId];
+    if (existingLine == null) {
+      _log(_LogLevel.debug, 'animateRouteLineStart: line not rendered yet', {'routeId': routeId});
+      return;
+    }
+
+    // Cancel any existing animation for this route
+    _routeAnimations[routeId]?.cancel();
+
+    // Use current animated position as start, or route's actual first point
+    final startPosition = _animatedRouteStarts[routeId] ?? routeData.coordinates.first;
+    final endLat = newStartPosition.lat;
+    final endLon = newStartPosition.lon;
+    final startLat = startPosition.lat;
+    final startLon = startPosition.lon;
+
+    // Skip animation if distance is negligible (< 0.00001 degrees ≈ 1 meter)
+    final latDiff = (endLat - startLat).abs();
+    final lonDiff = (endLon - startLon).abs();
+    if (latDiff < 0.00001 && lonDiff < 0.00001) {
+      _log(_LogLevel.debug, 'animateRouteLineStart: skipping - distance too small', {'routeId': routeId});
+      return;
+    }
+
+    _log(_LogLevel.debug, 'animateRouteLineStart: START', {
+      'routeId': routeId,
+      'from': '(${startLat.toStringAsFixed(6)}, ${startLon.toStringAsFixed(6)})',
+      'to': '(${endLat.toStringAsFixed(6)}, ${endLon.toStringAsFixed(6)})',
+      'duration': '${duration.inMilliseconds}ms',
+      'points': routeData.coordinates.length,
+    });
+
+    // Use ~60fps for smooth animation
+    const frameInterval = Duration(milliseconds: 16);
+    final totalSteps = (duration.inMilliseconds / frameInterval.inMilliseconds).ceil();
+    var currentStep = 0;
+    final startTime = DateTime.now();
+
+    // Keep remaining route coordinates (all except first)
+    final remainingCoords = routeData.coordinates.length > 1
+        ? routeData.coordinates.sublist(1)
+        : <Coordinates>[];
+
+    final timer = Timer.periodic(frameInterval, (timer) async {
+      currentStep++;
+
+      // Calculate progress using elapsed time for more accurate timing
+      final elapsed = DateTime.now().difference(startTime).inMilliseconds;
+      final rawProgress = elapsed / duration.inMilliseconds;
+      final progress = rawProgress.clamp(0.0, 1.0);
+
+      // Apply easing curve
+      final easedProgress = curve.transform(progress);
+
+      // Interpolate position
+      final lat = startLat + (endLat - startLat) * easedProgress;
+      final lon = startLon + (endLon - startLon) * easedProgress;
+      final currentAnimatedStart = Coordinates(lat: lat, lon: lon);
+
+      // Store current animated position for continuous animation
+      _animatedRouteStarts[routeId] = currentAnimatedStart;
+
+      // Build new coordinates with animated start + remaining original coords
+      final newCoordinates = [currentAnimatedStart, ...remainingCoords];
+
+      // Update line geometry
+      try {
+        await controller.updateLine(
+          existingLine,
+          LineOptions(
+            geometry: newCoordinates.map((c) => LatLng(c.lat, c.lon)).toList(),
+          ),
+        );
+      } catch (e) {
+        _log(_LogLevel.debug, 'animateRouteLineStart: updateLine error', {'error': e.toString()});
+        timer.cancel();
+        _routeAnimations.remove(routeId);
+        return;
+      }
+
+      // Complete animation
+      if (progress >= 1.0 || currentStep >= totalSteps) {
+        timer.cancel();
+        _routeAnimations.remove(routeId);
+        _log(_LogLevel.debug, 'animateRouteLineStart: COMPLETE', {
+          'routeId': routeId,
+          'steps': currentStep,
+          'actualDuration': '${elapsed}ms',
+        });
+      }
+    });
+
+    _routeAnimations[routeId] = timer;
+  }
+
+  /// Immediately snaps a route's start position without animation.
+  ///
+  /// Use this when you need instant update without smooth transition.
+  ///
+  /// [routeId] - ID of the route to update
+  /// [newStartPosition] - New position for the route start
+  Future<void> snapRouteLineStart(
+    String routeId,
+    Coordinates newStartPosition,
+  ) async {
+    final controller = _mapController;
+    if (controller == null) {
+      _log(_LogLevel.debug, 'snapRouteLineStart: controller is null', {'routeId': routeId});
+      return;
+    }
+
+    final routeData = _routeLineData[routeId];
+    if (routeData == null || routeData.coordinates.isEmpty) {
+      _log(_LogLevel.debug, 'snapRouteLineStart: route not found or empty', {'routeId': routeId});
+      return;
+    }
+
+    final existingLine = _routeLines[routeId];
+    if (existingLine == null) {
+      _log(_LogLevel.debug, 'snapRouteLineStart: line not rendered yet', {'routeId': routeId});
+      return;
+    }
+
+    // Cancel any running animation
+    cancelRouteAnimation(routeId);
+
+    // Store the new start position
+    _animatedRouteStarts[routeId] = newStartPosition;
+
+    // Build new coordinates with snapped start + remaining original coords
+    final remainingCoords = routeData.coordinates.length > 1
+        ? routeData.coordinates.sublist(1)
+        : <Coordinates>[];
+    final newCoordinates = [newStartPosition, ...remainingCoords];
+
+    await controller.updateLine(
+      existingLine,
+      LineOptions(
+        geometry: newCoordinates.map((c) => LatLng(c.lat, c.lon)).toList(),
+      ),
+    );
+
+    _log(_LogLevel.debug, 'snapRouteLineStart: done', {
+      'routeId': routeId,
+      'pos': '(${newStartPosition.lat.toStringAsFixed(6)}, ${newStartPosition.lon.toStringAsFixed(6)})',
+    });
+  }
+
+  /// Returns the current animated start position for a route, if any.
+  ///
+  /// Returns null if the route has no active animation or doesn't exist.
+  Coordinates? getAnimatedRouteStart(String routeId) {
+    return _animatedRouteStarts[routeId];
+  }
+
+  /// Cancels any running animation for a route.
+  void cancelRouteAnimation(String routeId) {
+    final timer = _routeAnimations.remove(routeId);
+    if (timer != null) {
+      timer.cancel();
+      _log(_LogLevel.debug, 'cancelRouteAnimation', {'routeId': routeId});
+    }
+  }
+
+  /// Cancels all running route animations.
+  void cancelAllRouteAnimations() {
+    for (final timer in _routeAnimations.values) {
+      timer.cancel();
+    }
+    final count = _routeAnimations.length;
+    _routeAnimations.clear();
+    if (count > 0) {
+      _log(_LogLevel.debug, 'cancelAllRouteAnimations', {'cancelled': count});
+    }
+  }
+
+  /// Clears the animated start position for a route.
+  ///
+  /// Call this when a route is removed or when you want to reset
+  /// the animation state.
+  void clearAnimatedRouteStart(String routeId) {
+    _animatedRouteStarts.remove(routeId);
+  }
+
+  /// Clears all animated route start positions.
+  void clearAllAnimatedRouteStarts() {
+    _animatedRouteStarts.clear();
   }
 
   String _colorToHex(Color color) {
@@ -1424,7 +1949,7 @@ class QorviaMapController extends ChangeNotifier {
       );
     }
 
-    // Draw heading arrow
+    // Draw heading arrow FIRST (behind avatar circle)
     if (icon.showHeadingIndicator && icon.heading != null) {
       final arrowPaint = Paint()
         ..color = icon.borderColor
@@ -1523,14 +2048,34 @@ class QorviaMapController extends ChangeNotifier {
   /// ```dart
   /// await controller.setStyle(MapStyles.ourMapsDark);
   /// ```
-  Future<void> setStyle(String styleUrl) async {
+  /// Changes the map style URL.
+  ///
+  /// [styleUrl] - New map style URL.
+  /// [restoreMarkers] - If true (default), automatically restores markers
+  ///   and routes after style change. Set to false to skip restoration.
+  ///
+  /// Note: MapLibre removes all symbols/lines when style changes.
+  /// With [restoreMarkers] = true, they are automatically re-added.
+  Future<void> setStyle(String styleUrl, {bool restoreMarkers = true}) async {
     final controller = _mapController;
     if (controller == null) {
       _log(_LogLevel.debug, 'setStyle: controller is null, skipping');
       return;
     }
 
-    _log(_LogLevel.info, 'setStyle START', {'url': styleUrl});
+    _log(_LogLevel.info, 'setStyle START', {
+      'url': styleUrl,
+      'restoreMarkers': restoreMarkers,
+    });
+
+    // Save data for restoration before clearing
+    final markersToRestore = restoreMarkers ? _markerData.values.toList() : <Marker>[];
+    final routesToRestore = restoreMarkers ? _routeLineData.values.toList() : <RouteLine>[];
+
+    _log(_LogLevel.debug, 'setStyle: saved for restoration', {
+      'markers': markersToRestore.length,
+      'routes': routesToRestore.length,
+    });
 
     // Clear internal state as style change resets the map layer
     // (MapLibre removes all symbols/lines when style changes)
@@ -1542,6 +2087,7 @@ class QorviaMapController extends ChangeNotifier {
     _symbolToMarkerId.clear();
     _registeredImages.clear();
     _routeLines.clear();
+    // Note: _markerData and _routeLineData are NOT cleared - we need them for restoration
 
     _log(_LogLevel.debug, 'setStyle: cleared state', {
       'markers': markerCount,
@@ -1551,6 +2097,14 @@ class QorviaMapController extends ChangeNotifier {
 
     try {
       await controller.setStyle(styleUrl);
+      _currentStyleUrl = styleUrl;
+      _log(_LogLevel.info, 'setStyle: style applied', {'url': styleUrl});
+
+      // Restore markers and routes if requested
+      if (restoreMarkers) {
+        await _restoreMarkersAndRoutes(markersToRestore, routesToRestore);
+      }
+
       _log(_LogLevel.info, 'setStyle COMPLETE', {'url': styleUrl});
     } catch (e, stack) {
       dev.log(
@@ -1563,16 +2117,175 @@ class QorviaMapController extends ChangeNotifier {
     }
   }
 
+  /// Current style URL if known.
+  String? get currentStyleUrl => _currentStyleUrl;
+
+  /// Whether the current style is the night theme.
+  ///
+  /// Returns null if cannot be determined (e.g., autoTheme mode
+  /// or style was not set via SDK).
+  bool? get isNightTheme {
+    if (_currentStyleUrl == null) return null;
+    final sdk = QorviaMapsSDK.instanceOrNull;
+    if (sdk == null) return null;
+
+    final nightUrl = sdk.nightTileUrl;
+    final dayUrl = sdk.dayTileUrl;
+
+    if (nightUrl != null && _currentStyleUrl == nightUrl) return true;
+    if (dayUrl != null && _currentStyleUrl == dayUrl) return false;
+    return null;
+  }
+
+  /// Switches the map to the night theme.
+  ///
+  /// Returns true if switch was successful, false if night theme
+  /// is not available (nightTileUrl is null).
+  ///
+  /// Requires SDK to be initialized with `autoTheme: false`.
+  ///
+  /// Example:
+  /// ```dart
+  /// if (await controller.switchToNightTheme()) {
+  ///   print('Switched to night theme');
+  /// } else {
+  ///   print('Night theme not available');
+  /// }
+  /// ```
+  Future<bool> switchToNightTheme() async {
+    return switchTheme(night: true);
+  }
+
+  /// Switches the map to the day theme.
+  ///
+  /// Returns true if switch was successful, false if day theme
+  /// URL is not available.
+  ///
+  /// Requires SDK to be initialized with `autoTheme: false`.
+  ///
+  /// Example:
+  /// ```dart
+  /// await controller.switchToDayTheme();
+  /// ```
+  Future<bool> switchToDayTheme() async {
+    return switchTheme(night: false);
+  }
+
+  /// Switches the map theme to day or night.
+  ///
+  /// [night] - true for night theme, false for day theme.
+  ///
+  /// Returns true if switch was successful, false if the requested
+  /// theme URL is not available.
+  ///
+  /// Requires SDK to be initialized with `autoTheme: false`.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Switch based on system time or user preference
+  /// final useNight = DateTime.now().hour >= 20 || DateTime.now().hour < 6;
+  /// await controller.switchTheme(night: useNight);
+  /// ```
+  Future<bool> switchTheme({required bool night}) async {
+    final sdk = QorviaMapsSDK.instanceOrNull;
+    if (sdk == null) {
+      _log(_LogLevel.info, 'switchTheme: SDK not initialized');
+      return false;
+    }
+
+    final targetUrl = night ? sdk.nightTileUrl : sdk.dayTileUrl;
+    if (targetUrl == null) {
+      _log(_LogLevel.info, 'switchTheme: target URL is null', {
+        'night': night,
+        'nightUrl': sdk.nightTileUrl,
+        'dayUrl': sdk.dayTileUrl,
+      });
+      return false;
+    }
+
+    // Skip if already on target theme
+    if (_currentStyleUrl == targetUrl) {
+      _log(_LogLevel.debug, 'switchTheme: already on target theme', {
+        'night': night,
+      });
+      return true;
+    }
+
+    _log(_LogLevel.info, 'switchTheme', {
+      'night': night,
+      'url': targetUrl,
+    });
+
+    await setStyle(targetUrl);
+    return true;
+  }
+
+  /// Restores markers and routes after style change.
+  Future<void> _restoreMarkersAndRoutes(
+    List<Marker> markers,
+    List<RouteLine> routes,
+  ) async {
+    if (markers.isEmpty && routes.isEmpty) return;
+
+    _log(_LogLevel.debug, '_restoreMarkersAndRoutes START', {
+      'markers': markers.length,
+      'routes': routes.length,
+    });
+
+    final stopwatch = Stopwatch()..start();
+
+    // Restore markers
+    if (markers.isNotEmpty) {
+      try {
+        await addMarkers(markers);
+        _log(_LogLevel.debug, '_restoreMarkersAndRoutes: markers restored', {
+          'count': markers.length,
+        });
+      } catch (e) {
+        _log(_LogLevel.info, '_restoreMarkersAndRoutes: marker restore failed', {
+          'error': e.toString(),
+        });
+      }
+    }
+
+    // Restore routes
+    for (final route in routes) {
+      try {
+        await displayRouteLine(route);
+      } catch (e) {
+        _log(_LogLevel.info, '_restoreMarkersAndRoutes: route restore failed', {
+          'routeId': route.id,
+          'error': e.toString(),
+        });
+      }
+    }
+
+    stopwatch.stop();
+    _log(_LogLevel.info, '_restoreMarkersAndRoutes COMPLETE', {
+      'markers': markers.length,
+      'routes': routes.length,
+      'durationMs': stopwatch.elapsedMilliseconds,
+    });
+  }
+
   // ==================== CLEANUP ====================
 
   @override
   void dispose() {
+    // Cancel all animations
+    cancelAllMarkerAnimations();
+    cancelAllRouteAnimations();
+    clearAllAnimatedRouteStarts();
+
     _sharedDio?.close();
     _sharedDio = null;
     _mapController = null;
     _markers.clear();
     _routeLines.clear();
     _registeredImages.clear();
+    _markerData.clear();
+    _routeLineData.clear();
+    _currentStyleUrl = null;
     super.dispose();
   }
 

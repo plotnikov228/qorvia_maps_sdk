@@ -1,5 +1,3 @@
-import '../navigation_logger.dart';
-
 /// Smooths bearing values using exponential moving average with
 /// shortest-angle-delta and velocity limiting.
 ///
@@ -72,12 +70,6 @@ class BearingSmoother {
       // Progressively boost alpha as turn gets sharper
       final turnFactor = ((absDelta - turnBoostThreshold) / 60.0).clamp(0.0, 1.0);
       alpha = (alpha * (1.0 + turnFactor * (turnAlphaBoost - 1.0))).clamp(0.0, 0.6);
-
-      NavigationLogger.debug('BearingSmoother', 'Turn boost applied', {
-        'absDelta': absDelta,
-        'turnFactor': turnFactor,
-        'boostedAlpha': alpha,
-      });
     }
 
     // Velocity limiting — boost for large bearing deltas so real turns
@@ -110,14 +102,6 @@ class BearingSmoother {
 
     _smoothedBearing = (_smoothedBearing! + finalDelta) % 360;
     if (_smoothedBearing! < 0) _smoothedBearing = _smoothedBearing! + 360;
-
-    NavigationLogger.debug('BearingSmoother', 'Smooth', {
-      'input': rawBearing,
-      'output': _smoothedBearing,
-      'delta': delta,
-      'alpha': alpha,
-      'velocity': clampedVelocity,
-    });
 
     return _smoothedBearing!;
   }

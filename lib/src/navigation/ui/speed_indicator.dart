@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../navigation_logger.dart';
-
 /// Default colors for speed indicator (Yandex Navigator style).
 const Color kDefaultSpeedBackgroundColor = Colors.white;
 const Color kDefaultSpeedTextColor = Color(0xFF333333);
@@ -46,12 +44,6 @@ class SpeedIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isOverLimit = speedLimit != null && speedKmh > speedLimit!;
-
-    NavigationLogger.debug('SpeedIndicator', 'Building', {
-      'speedKmh': speedKmh.round(),
-      'speedLimit': speedLimit?.round(),
-      'isOverLimit': isOverLimit,
-    });
 
     return Row(
       mainAxisSize: MainAxisSize.min,

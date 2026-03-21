@@ -39,12 +39,6 @@ class SpeedWidgetData {
     final limit = state.currentStep?.speedLimit?.toDouble();
     final isOverLimit = limit != null && speedKmh > limit;
 
-    NavigationLogger.debug('SpeedWidgetData', 'Created from state', {
-      'speedKmh': speedKmh,
-      'speedLimit': limit,
-      'isOverLimit': isOverLimit,
-    });
-
     if (limit != null && isOverLimit) {
       NavigationLogger.info('SpeedWidgetData', 'Speed limit exceeded', {
         'currentSpeed': speedKmh,
@@ -114,12 +108,6 @@ class EtaWidgetData {
 
   /// Creates [EtaWidgetData] from navigation state.
   factory EtaWidgetData.fromState(NavigationState state) {
-    NavigationLogger.debug('EtaWidgetData', 'Created from state', {
-      'distanceRemaining': state.distanceRemaining,
-      'durationRemaining': state.durationRemaining,
-      'progress': state.progress,
-    });
-
     return EtaWidgetData(
       formattedEta: state.formattedEta,
       formattedDuration: state.formattedDurationRemaining,
@@ -217,15 +205,6 @@ class TurnWidgetData {
     final step = state.currentStep;
     final hasManeuver = step != null;
 
-    NavigationLogger.debug('TurnWidgetData', 'Created from state', {
-      'hasManeuver': hasManeuver,
-      'stepIndex': state.currentStepIndex,
-      'maneuver': step?.maneuver,
-      'distanceToManeuver': state.distanceToNextManeuver,
-      'lanesCount': step?.lanes.length ?? 0,
-      'hasTrafficSignal': step?.hasTrafficSignal ?? false,
-    });
-
     return TurnWidgetData(
       instruction: step?.instruction ?? '',
       roadName: step?.name,
@@ -278,11 +257,6 @@ class RecenterWidgetData {
   /// Creates [RecenterWidgetData] from tracking mode.
   factory RecenterWidgetData.fromMode(CameraTrackingMode mode) {
     final isVisible = mode == CameraTrackingMode.free;
-
-    NavigationLogger.debug('RecenterWidgetData', 'Created from mode', {
-      'mode': mode.name,
-      'isVisible': isVisible,
-    });
 
     return RecenterWidgetData(
       currentMode: mode,

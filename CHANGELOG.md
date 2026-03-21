@@ -1,3 +1,8 @@
+## 0.3.0
+
+- Improved navigation mode
+- Fixed markers display
+
 ## 0.2.9
 
 - Improved navigation mode for better performance

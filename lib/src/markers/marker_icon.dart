@@ -461,8 +461,9 @@ class AvatarMarkerIcon extends MarkerIcon {
   });
 
   /// Total size including arrow indicator (only when heading is provided).
+  /// Arrow can point in any direction, so we need space on all sides.
   double get totalSize =>
-      size + (showHeadingIndicator && heading != null ? arrowSize : 0);
+      size + (showHeadingIndicator && heading != null ? arrowSize * 2 : 0);
 }
 
 /// A cached marker icon that stores a pre-rendered image for performance.

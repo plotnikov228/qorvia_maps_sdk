@@ -276,7 +276,7 @@ class _TravelModeChip extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            travelMode.displayName,
+            travelMode.localizedName(context),
             style: const TextStyle(
               color: AppColors.primary,
               fontWeight: FontWeight.w700,

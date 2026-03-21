@@ -30,6 +30,25 @@
 ///   to: Coordinates(lat: 55.7614, lon: 37.6500),
 /// );
 /// ```
+///
+/// ## Manual Theme Control
+///
+/// By default, the SDK automatically selects day/night theme based on time.
+/// To control theme manually:
+///
+/// ```dart
+/// await QorviaMapsSDK.init(
+///   apiKey: 'your_api_key',
+///   autoTheme: false, // disable automatic theme selection
+/// );
+///
+/// // Get both URLs
+/// final dayUrl = QorviaMapsSDK.instance.dayTileUrl;
+/// final nightUrl = QorviaMapsSDK.instance.nightTileUrl; // may be null!
+///
+/// // Server's recommendation
+/// final useNight = QorviaMapsSDK.instance.isNightModeRecommended ?? false;
+/// ```
 library;
 
 // SDK Initializer
@@ -93,6 +112,8 @@ export 'src/navigation/tracking/position_smoother.dart';
 // Navigation - Map Layers
 export 'src/navigation/user_arrow/user_arrow_layer.dart';
 export 'src/navigation/user_arrow/route_line_manager.dart';
+// Navigation - Route Animation
+export 'src/navigation/route_line_animator.dart';
 // Navigation - UI Widgets
 export 'src/navigation/ui/next_turn_panel.dart';
 export 'src/navigation/ui/eta_panel.dart';

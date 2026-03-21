@@ -77,10 +77,6 @@ class CameraController {
 
       if (positionDelta < _deadZoneMeters &&
           bearingDelta < _deadZoneDegrees) {
-        NavigationLogger.debug('CameraController', 'Dead zone skip', {
-          'posDelta': positionDelta,
-          'bearDelta': bearingDelta,
-        });
         return;
       }
     }
@@ -108,13 +104,6 @@ class CameraController {
 
       _lastCameraPosition = target;
       _lastCameraBearing = cameraBearing;
-
-      NavigationLogger.debug('CameraController', 'Camera updated', {
-        'lat': target.lat,
-        'lon': target.lon,
-        'bearing': cameraBearing,
-        'zoom': _zoom,
-      });
     } catch (e) {
       NavigationLogger.error('CameraController', 'Camera update failed', e);
     }

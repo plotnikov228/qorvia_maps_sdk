@@ -135,6 +135,10 @@ class RouteStep extends Equatable {
       debugPrint('[RouteStep.fromJson] waypoint_index: $waypointIndex (reached waypoint)');
     }
 
+    // Normalize maneuver to SDK-expected format
+    final rawManeuver = json['maneuver'] as String;
+    final maneuver = _normalizeManeuver(rawManeuver);
+
     return RouteStep(
       instruction: json['instruction'] as String,
       voiceInstruction: voiceInstruction,
@@ -143,7 +147,7 @@ class RouteStep extends Equatable {
       verbalDistance: verbalDistance,
       distanceMeters: json['distance_meters'] as int,
       durationSeconds: json['duration_seconds'] as int,
-      maneuver: json['maneuver'] as String,
+      maneuver: maneuver,
       name: json['name'] as String?,
       speedLimit: speedLimit,
       lanes: lanes,
@@ -152,6 +156,44 @@ class RouteStep extends Equatable {
       legIndex: legIndex,
       waypointIndex: waypointIndex,
     );
+  }
+
+  /// Normalizes API maneuver values to SDK-expected format.
+  ///
+  /// Some APIs return short forms like "left", "right" while SDK expects
+  /// "turn-left", "turn-right". This method maps all known variations.
+  static String _normalizeManeuver(String maneuver) {
+    // Mapping of short-form API values to SDK-expected format
+    const maneuverMap = {
+      // Basic turns - API returns "left"/"right", SDK expects "turn-left"/"turn-right"
+      'left': Maneuvers.turnLeft,
+      'right': Maneuvers.turnRight,
+      // Slight turns
+      'slight-left': Maneuvers.turnSlightLeft,
+      'slight_left': Maneuvers.turnSlightLeft,
+      'slight-right': Maneuvers.turnSlightRight,
+      'slight_right': Maneuvers.turnSlightRight,
+      // Sharp turns
+      'sharp-left': Maneuvers.turnSharpLeft,
+      'sharp_left': Maneuvers.turnSharpLeft,
+      'sharp-right': Maneuvers.turnSharpRight,
+      'sharp_right': Maneuvers.turnSharpRight,
+      // U-turn variations
+      'u-turn': Maneuvers.uturn,
+      'u_turn': Maneuvers.uturn,
+      'uturn-left': Maneuvers.uturn,
+      'uturn-right': Maneuvers.uturn,
+    };
+
+    final normalized = maneuverMap[maneuver] ?? maneuver;
+
+    // Log only when normalization actually happens
+    if (normalized != maneuver) {
+      debugPrint(
+          '[RouteStep._normalizeManeuver] Normalized "$maneuver" → "$normalized"');
+    }
+
+    return normalized;
   }
 
   Map<String, dynamic> toJson() => {
@@ -194,7 +236,12 @@ class RouteStep extends Equatable {
 }
 
 /// Maneuver types for navigation.
+///
+/// Standard SDK maneuver values are used internally. Some APIs return
+/// short-form aliases (e.g., "left" instead of "turn-left") which are
+/// normalized by [RouteStep.fromJson].
 abstract class Maneuvers {
+  // === Standard SDK maneuver types ===
   static const String depart = 'depart';
   static const String arrive = 'arrive';
   static const String turnLeft = 'turn-left';
@@ -212,4 +259,14 @@ abstract class Maneuvers {
   static const String roundabout = 'roundabout';
   static const String rotary = 'rotary';
   static const String exitRoundabout = 'exit-roundabout';
+
+  // === API aliases (short forms returned by some routing APIs) ===
+  // These are normalized to standard forms in RouteStep.fromJson()
+  static const String left = 'left'; // → turnLeft
+  static const String right = 'right'; // → turnRight
+  static const String slightLeft = 'slight-left'; // → turnSlightLeft
+  static const String slightRight = 'slight-right'; // → turnSlightRight
+  static const String sharpLeft = 'sharp-left'; // → turnSharpLeft
+  static const String sharpRight = 'sharp-right'; // → turnSharpRight
+  static const String uTurn = 'u-turn'; // → uturn
 }

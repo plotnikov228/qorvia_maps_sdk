@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import '../../models/coordinates.dart';
 import '../../location/location_data.dart';
-import '../navigation_logger.dart';
 
 /// Physics-based position prediction using kinematic model.
 ///
@@ -43,11 +42,6 @@ class MotionPredictor {
     while (_samples.length > bufferSize) {
       _samples.removeAt(0);
     }
-
-    NavigationLogger.debug('MotionPredictor', 'Sample added', {
-      'bufferSize': _samples.length,
-      'speed': location.speed,
-    });
   }
 
   /// Predicts position [ahead] duration into the future.
@@ -62,9 +56,6 @@ class MotionPredictor {
 
     // Check if data is too stale (> 3 seconds)
     if (staleness.inMilliseconds > 3000) {
-      NavigationLogger.debug('MotionPredictor', 'Data too stale', {
-        'staleness': staleness.inMilliseconds,
-      });
       return null;
     }
 
@@ -142,11 +133,6 @@ class MotionPredictor {
     // Reduce confidence for high jerk
     if (jerk > maxJerkThreshold) {
       confidence *= math.max(0.2, 1.0 - (jerk - maxJerkThreshold) / 20);
-      NavigationLogger.debug('MotionPredictor', 'Jerk detected', {
-        'jerk': jerk,
-        'threshold': maxJerkThreshold,
-        'confidence': confidence,
-      });
     }
 
     confidence = confidence.clamp(0.0, 1.0);
@@ -160,13 +146,6 @@ class MotionPredictor {
       confidence: confidence,
       speed: latest.speed,
     );
-
-    NavigationLogger.debug('MotionPredictor', 'Prediction', {
-      'ahead': ahead.inMilliseconds,
-      'confidence': confidence,
-      'speed': latest.speed,
-      'distance': predDistance,
-    });
 
     return confidence >= minConfidence ? predicted : null;
   }

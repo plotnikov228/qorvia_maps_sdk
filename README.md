@@ -27,7 +27,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  qorvia_maps_sdk: ^0.2.9
+  qorvia_maps_sdk: ^0.3.0
 ```
 
 ### Platform Setup
