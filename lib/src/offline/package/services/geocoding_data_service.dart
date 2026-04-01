@@ -90,7 +90,8 @@ class GeocodingDataService {
   /// Returns regions that intersect with or contain the specified bounds.
   ///
   /// Endpoint: POST /v1/mobile/geocoding/regions/search
-  Future<List<GeocodingRegion>> getRegionsForBounds(OfflineBounds bounds) async {
+  Future<List<GeocodingRegion>> getRegionsForBounds(
+      OfflineBounds bounds) async {
     _log('Searching geocoding regions for bounds: $bounds');
 
     final data = await _client.post(

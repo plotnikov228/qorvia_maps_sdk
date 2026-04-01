@@ -27,7 +27,7 @@ Flutter SDK для гео-сервисов: навигация, маршрути
 
 ```yaml
 dependencies:
-  qorvia_maps_sdk: ^0.3.0
+  qorvia_maps_sdk: ^0.3.1
 ```
 
 ### Настройка платформ

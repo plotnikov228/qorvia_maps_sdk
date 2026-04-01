@@ -187,13 +187,16 @@ class MapOptions {
       showAttribution: showAttribution ?? this.showAttribution,
       showUserLocation: showUserLocation ?? this.showUserLocation,
       userLocationStyle: userLocationStyle ?? this.userLocationStyle,
-      rotateGesturesEnabled: rotateGesturesEnabled ?? this.rotateGesturesEnabled,
+      rotateGesturesEnabled:
+          rotateGesturesEnabled ?? this.rotateGesturesEnabled,
       tiltGesturesEnabled: tiltGesturesEnabled ?? this.tiltGesturesEnabled,
       zoomGesturesEnabled: zoomGesturesEnabled ?? this.zoomGesturesEnabled,
-      scrollGesturesEnabled: scrollGesturesEnabled ?? this.scrollGesturesEnabled,
+      scrollGesturesEnabled:
+          scrollGesturesEnabled ?? this.scrollGesturesEnabled,
       doubleTapZoomEnabled: doubleTapZoomEnabled ?? this.doubleTapZoomEnabled,
       backgroundColor: backgroundColor ?? this.backgroundColor,
-      mapReadyAnimationDuration: mapReadyAnimationDuration ?? this.mapReadyAnimationDuration,
+      mapReadyAnimationDuration:
+          mapReadyAnimationDuration ?? this.mapReadyAnimationDuration,
       widgetsConfig: widgetsConfig ?? this.widgetsConfig,
     );
   }

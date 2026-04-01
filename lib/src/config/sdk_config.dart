@@ -110,8 +110,7 @@ class SdkConfig {
           routeSmoothingEnabled ?? this.routeSmoothingEnabled,
       routeSmoothingMinAngleDegrees:
           routeSmoothingMinAngleDegrees ?? this.routeSmoothingMinAngleDegrees,
-      routeSmoothingRadius:
-          routeSmoothingRadius ?? this.routeSmoothingRadius,
+      routeSmoothingRadius: routeSmoothingRadius ?? this.routeSmoothingRadius,
       routeSmoothingPointsPerCorner:
           routeSmoothingPointsPerCorner ?? this.routeSmoothingPointsPerCorner,
       polylinePrecision: polylinePrecision ?? this.polylinePrecision,

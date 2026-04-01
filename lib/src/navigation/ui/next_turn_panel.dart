@@ -69,7 +69,6 @@ class NextTurnPanel extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,7 +87,6 @@ class NextTurnPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-
                   Stack(
                     clipBehavior: Clip.none,
                     children: [

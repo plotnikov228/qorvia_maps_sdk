@@ -64,8 +64,7 @@ class DownloadProgressWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final effectiveProgressColor =
-        progressColor ?? theme.colorScheme.primary;
+    final effectiveProgressColor = progressColor ?? theme.colorScheme.primary;
     final effectiveBackgroundColor =
         backgroundColor ?? theme.colorScheme.surfaceContainerHighest;
 

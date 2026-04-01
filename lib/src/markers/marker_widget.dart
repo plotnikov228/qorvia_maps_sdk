@@ -201,8 +201,7 @@ class _NumberedMarkerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heightMultiplier =
-        icon.style == MarkerStyle.minimal ? 1.0 : 1.4;
+    final heightMultiplier = icon.style == MarkerStyle.minimal ? 1.0 : 1.4;
 
     return SizedBox(
       width: icon.size,
@@ -265,9 +264,8 @@ class _NumberedMarkerWidget extends StatelessWidget {
 
   Widget _buildNumberContent() {
     final displayText = icon.displayText;
-    final innerSize = icon.style == MarkerStyle.minimal
-        ? icon.size * 0.7
-        : icon.size * 0.5;
+    final innerSize =
+        icon.style == MarkerStyle.minimal ? icon.size * 0.7 : icon.size * 0.5;
 
     // Calculate font size based on text length
     double fontSize;
@@ -325,7 +323,8 @@ class _ClassicPinPainter extends CustomPainter {
           pinRadius,
         )
         ..arcTo(
-          Rect.fromCircle(center: Offset(centerX, pinRadius), radius: pinRadius),
+          Rect.fromCircle(
+              center: Offset(centerX, pinRadius), radius: pinRadius),
           3.14159,
           -3.14159,
           false,
@@ -376,7 +375,8 @@ class _ClassicPinPainter extends CustomPainter {
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, pinRadius * 2));
     canvas.drawArc(
-      Rect.fromCircle(center: Offset(centerX, pinRadius), radius: pinRadius - 1),
+      Rect.fromCircle(
+          center: Offset(centerX, pinRadius), radius: pinRadius - 1),
       3.14159 * 1.2,
       -3.14159 * 0.6,
       false,
@@ -894,12 +894,10 @@ class _AnimatedMarkerWidgetState extends State<AnimatedMarkerWidget>
     return AnimatedBuilder(
       animation: _primaryController,
       builder: (context, child) {
-        final dropValue = _primaryController.value < 0.6
-            ? _dropAnimation.value
-            : 0.0;
-        final scaleValue = _primaryController.value >= 0.6
-            ? _bounceAnimation.value
-            : 1.0;
+        final dropValue =
+            _primaryController.value < 0.6 ? _dropAnimation.value : 0.0;
+        final scaleValue =
+            _primaryController.value >= 0.6 ? _bounceAnimation.value : 1.0;
 
         return Transform.translate(
           offset: Offset(0, dropValue),
@@ -1191,8 +1189,8 @@ class _CachedMarkerWidgetState extends State<CachedMarkerWidget> {
         });
       }
     } catch (e) {
-      // Capture failed, keep showing the live widget
       debugPrint('MarkerCache: Failed to capture marker: $e');
+      // Capture failed, keep showing the live widget
     }
   }
 

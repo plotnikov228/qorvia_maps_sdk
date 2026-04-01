@@ -315,7 +315,8 @@ class PackageDownloadWidget extends StatelessWidget {
             child: _ContentProgressRow(
               type: entry.key,
               progress: entry.value,
-              isCurrentlyDownloading: entry.key == progress.currentlyDownloading,
+              isCurrentlyDownloading:
+                  entry.key == progress.currentlyDownloading,
             ),
           );
         }),

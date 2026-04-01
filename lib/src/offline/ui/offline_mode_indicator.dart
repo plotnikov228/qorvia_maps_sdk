@@ -138,7 +138,8 @@ class _OfflineModeIndicatorState extends State<OfflineModeIndicator> {
 
   @override
   Widget build(BuildContext context) {
-    final indicator = widget.child ?? _DefaultOfflineIndicator(style: widget.style);
+    final indicator =
+        widget.child ?? _DefaultOfflineIndicator(style: widget.style);
 
     Widget content = Align(
       alignment: widget.position,
@@ -208,7 +209,8 @@ class OfflineModeIndicatorStyle {
     this.iconColor,
     this.text = 'Offline Mode',
     this.borderRadius = const BorderRadius.all(Radius.circular(20)),
-    this.contentPadding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    this.contentPadding =
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     this.textStyle,
     this.boxShadow,
   });

@@ -526,15 +526,7 @@ class RoutingEngine {
         let tempZipURL = destinationURL.appendingPathComponent("temp.zip")
         try data.write(to: tempZipURL)
 
-        // Use Archive utility
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
-        process.arguments = ["-o", tempZipURL.path, "-d", destinationURL.path]
-
-        // For iOS, we need to use a different approach since Process isn't available
-        // Instead, use FileManager's unzipItem or a manual implementation
-
-        // Simple manual unzip for iOS
+        // Extract using manual implementation (Process is not available on iOS)
         try unzipFile(at: tempZipURL, to: destinationURL)
 
         // Clean up temp file

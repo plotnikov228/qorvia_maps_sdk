@@ -55,7 +55,8 @@ class RegionSelectionOverlay extends StatefulWidget {
 
   /// Function to convert screen position to coordinates.
   /// Required for actual coordinate calculation.
-  final Future<Coordinates?> Function(Offset screenPosition)? screenToCoordinates;
+  final Future<Coordinates?> Function(Offset screenPosition)?
+      screenToCoordinates;
 
   const RegionSelectionOverlay({
     super.key,
@@ -124,8 +125,8 @@ class _RegionSelectionOverlayState extends State<RegionSelectionOverlay> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final borderColor = widget.borderColor ?? theme.colorScheme.primary;
-    final fillColor = widget.fillColor ??
-        theme.colorScheme.primary.withValues(alpha: 0.1);
+    final fillColor =
+        widget.fillColor ?? theme.colorScheme.primary.withValues(alpha: 0.1);
 
     return Stack(
       children: [
@@ -452,12 +453,12 @@ class BoundsInfoWidget extends StatelessWidget {
           _buildCoordRow(
             'SW',
             '${bounds.southwest.lat.toStringAsFixed(4)}, '
-            '${bounds.southwest.lon.toStringAsFixed(4)}',
+                '${bounds.southwest.lon.toStringAsFixed(4)}',
           ),
           _buildCoordRow(
             'NE',
             '${bounds.northeast.lat.toStringAsFixed(4)}, '
-            '${bounds.northeast.lon.toStringAsFixed(4)}',
+                '${bounds.northeast.lon.toStringAsFixed(4)}',
           ),
           if (estimatedTiles != null || estimatedSize != null) ...[
             const Divider(height: 16),

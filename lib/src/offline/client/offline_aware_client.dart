@@ -132,7 +132,8 @@ class OfflineAwareClient {
 
     // Try cache first if offline
     if (!isOnline) {
-      NavigationLogger.debug(_logTag, 'Offline mode, checking cache', cacheParams);
+      NavigationLogger.debug(
+          _logTag, 'Offline mode, checking cache', cacheParams);
       final cached = await _geocodeCache.getByQuery(
         query: query,
         language: language,
@@ -154,7 +155,8 @@ class OfflineAwareClient {
 
     // Online mode: try API, fallback to cache on error
     try {
-      NavigationLogger.debug(_logTag, 'Online mode, making API request', cacheParams);
+      NavigationLogger.debug(
+          _logTag, 'Online mode, making API request', cacheParams);
 
       final response = await _apiClient.geocode(
         query: query,
@@ -178,7 +180,8 @@ class OfflineAwareClient {
 
       return response;
     } on NetworkException catch (e) {
-      NavigationLogger.debug(_logTag, 'API failed, trying cache', {'error': e.message});
+      NavigationLogger.debug(
+          _logTag, 'API failed, trying cache', {'error': e.message});
 
       final cached = await _geocodeCache.getByQuery(
         query: query,
@@ -188,7 +191,8 @@ class OfflineAwareClient {
       );
 
       if (cached != null) {
-        NavigationLogger.info(_logTag, 'Returning cached result after API failure');
+        NavigationLogger.info(
+            _logTag, 'Returning cached result after API failure');
         return cached;
       }
 
@@ -220,7 +224,8 @@ class OfflineAwareClient {
 
     // Try cache first if offline
     if (!isOnline) {
-      NavigationLogger.debug(_logTag, 'Offline mode, checking cache', cacheParams);
+      NavigationLogger.debug(
+          _logTag, 'Offline mode, checking cache', cacheParams);
 
       final cached = await _reverseCache.getByCoordinates(
         lat: lat,
@@ -242,7 +247,8 @@ class OfflineAwareClient {
 
     // Online mode: try API, fallback to cache on error
     try {
-      NavigationLogger.debug(_logTag, 'Online mode, making API request', cacheParams);
+      NavigationLogger.debug(
+          _logTag, 'Online mode, making API request', cacheParams);
 
       final response = await _apiClient.reverseLatLon(
         lat: lat,
@@ -260,7 +266,8 @@ class OfflineAwareClient {
 
       return response;
     } on NetworkException catch (e) {
-      NavigationLogger.debug(_logTag, 'API failed, trying cache', {'error': e.message});
+      NavigationLogger.debug(
+          _logTag, 'API failed, trying cache', {'error': e.message});
 
       final cached = await _reverseCache.getByCoordinates(
         lat: lat,
@@ -269,7 +276,8 @@ class OfflineAwareClient {
       );
 
       if (cached != null) {
-        NavigationLogger.info(_logTag, 'Returning cached result after API failure');
+        NavigationLogger.info(
+            _logTag, 'Returning cached result after API failure');
         return cached;
       }
 
@@ -297,7 +305,8 @@ class OfflineAwareClient {
 
     // Try cache first if offline
     if (!isOnline) {
-      NavigationLogger.debug(_logTag, 'Offline mode, checking cache', cacheParams);
+      NavigationLogger.debug(
+          _logTag, 'Offline mode, checking cache', cacheParams);
 
       final cached = await _routeCache.getByRoute(
         from: from,
@@ -320,7 +329,8 @@ class OfflineAwareClient {
 
     // Online mode: try API, fallback to cache on error
     try {
-      NavigationLogger.debug(_logTag, 'Online mode, making API request', cacheParams);
+      NavigationLogger.debug(
+          _logTag, 'Online mode, making API request', cacheParams);
 
       final response = await _apiClient.route(
         from: from,
@@ -343,7 +353,8 @@ class OfflineAwareClient {
 
       return response;
     } on NetworkException catch (e) {
-      NavigationLogger.debug(_logTag, 'API failed, trying cache', {'error': e.message});
+      NavigationLogger.debug(
+          _logTag, 'API failed, trying cache', {'error': e.message});
 
       final cached = await _routeCache.getByRoute(
         from: from,
@@ -353,7 +364,8 @@ class OfflineAwareClient {
       );
 
       if (cached != null) {
-        NavigationLogger.info(_logTag, 'Returning cached result after API failure');
+        NavigationLogger.info(
+            _logTag, 'Returning cached result after API failure');
         return cached;
       }
 
@@ -382,7 +394,8 @@ class OfflineAwareClient {
 
     // Try cache first if offline
     if (!isOnline) {
-      NavigationLogger.debug(_logTag, 'Offline mode, checking cache', cacheParams);
+      NavigationLogger.debug(
+          _logTag, 'Offline mode, checking cache', cacheParams);
 
       final cached = await _smartSearchCache.getByQuery(
         query: query,
@@ -406,7 +419,8 @@ class OfflineAwareClient {
 
     // Online mode: try API, fallback to cache on error
     try {
-      NavigationLogger.debug(_logTag, 'Online mode, making API request', cacheParams);
+      NavigationLogger.debug(
+          _logTag, 'Online mode, making API request', cacheParams);
 
       final response = await _apiClient.smartSearch(
         query: query,
@@ -429,7 +443,8 @@ class OfflineAwareClient {
 
       return response;
     } on NetworkException catch (e) {
-      NavigationLogger.debug(_logTag, 'API failed, trying cache', {'error': e.message});
+      NavigationLogger.debug(
+          _logTag, 'API failed, trying cache', {'error': e.message});
 
       final cached = await _smartSearchCache.getByQuery(
         query: query,
@@ -440,7 +455,8 @@ class OfflineAwareClient {
       );
 
       if (cached != null) {
-        NavigationLogger.info(_logTag, 'Returning cached result after API failure');
+        NavigationLogger.info(
+            _logTag, 'Returning cached result after API failure');
         return cached;
       }
 

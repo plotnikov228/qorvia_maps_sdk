@@ -60,8 +60,7 @@ class MotionPredictor {
     }
 
     // Total prediction time = staleness + ahead
-    final totalAhead =
-        staleness + ahead;
+    final totalAhead = staleness + ahead;
     var t = totalAhead.inMicroseconds / 1e6;
 
     // Clamp prediction time
@@ -102,14 +101,12 @@ class MotionPredictor {
     var predLon = latest.position.lon + vLon * t + 0.5 * aLon * t * t;
 
     // Clamp prediction distance
-    final predDistance = Coordinates(lat: predLat, lon: predLon)
-        .distanceTo(latest.position);
+    final predDistance =
+        Coordinates(lat: predLat, lon: predLon).distanceTo(latest.position);
     if (predDistance > maxPredictionDistanceM) {
       final scale = maxPredictionDistanceM / predDistance;
-      predLat = latest.position.lat +
-          (predLat - latest.position.lat) * scale;
-      predLon = latest.position.lon +
-          (predLon - latest.position.lon) * scale;
+      predLat = latest.position.lat + (predLat - latest.position.lat) * scale;
+      predLon = latest.position.lon + (predLon - latest.position.lon) * scale;
     }
 
     // Clamp coordinates to valid range
@@ -126,8 +123,8 @@ class MotionPredictor {
 
     // Reduce confidence for stale data
     if (staleness.inMilliseconds > 500) {
-      confidence *= math.max(
-          0.3, 1.0 - (staleness.inMilliseconds - 500) / 2500);
+      confidence *=
+          math.max(0.3, 1.0 - (staleness.inMilliseconds - 500) / 2500);
     }
 
     // Reduce confidence for high jerk
@@ -168,7 +165,8 @@ class MotionPredictor {
     final now = DateTime.now();
     final staleness = now.difference(latest.timestamp);
     final totalAhead = staleness + ahead;
-    final t = (totalAhead.inMicroseconds / 1e6).clamp(0.0, maxPredictionTimeSec);
+    final t =
+        (totalAhead.inMicroseconds / 1e6).clamp(0.0, maxPredictionTimeSec);
 
     // Distance to walk along route
     final distance = (speed * t).clamp(0.0, maxPredictionDistanceM);
@@ -234,8 +232,7 @@ class MotionPredictor {
   int get sampleCount => _samples.length;
 
   /// Estimated current speed from last sample.
-  double get estimatedSpeed =>
-      _samples.isNotEmpty ? _samples.last.speed : 0;
+  double get estimatedSpeed => _samples.isNotEmpty ? _samples.last.speed : 0;
 
   /// Resets the prediction buffer.
   void reset() {

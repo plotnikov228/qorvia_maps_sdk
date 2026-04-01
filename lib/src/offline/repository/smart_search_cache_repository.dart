@@ -172,7 +172,8 @@ class SmartSearchCacheRepository
   Future<void> clear() async {
     try {
       final count = await _db.clearSmartSearchCache();
-      NavigationLogger.info(_logTag, 'Cache cleared', {'entriesRemoved': count});
+      NavigationLogger.info(
+          _logTag, 'Cache cleared', {'entriesRemoved': count});
     } catch (e, stack) {
       NavigationLogger.error(_logTag, 'clear() failed', e, stack);
     }

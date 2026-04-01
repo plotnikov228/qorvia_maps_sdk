@@ -1,3 +1,8 @@
+## 0.3.1
+
+- Fixed: iOS Permissions, iOS implementation, Position Animator, Catmull-Rom Interpolation
+- Added: GPS-based Arrival Detection, Linear Interpolation with Clamping
+
 ## 0.3.0
 
 - Improved navigation mode

@@ -98,7 +98,8 @@ class _LaneIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = lane.active ? activeColor : (lane.valid ? validColor : invalidColor);
+    final color =
+        lane.active ? activeColor : (lane.valid ? validColor : invalidColor);
 
     return Container(
       width: size,
@@ -223,9 +224,11 @@ class _LaneArrowPainter extends CustomPainter {
         path.lineTo(center.dx, center.dy);
         path.lineTo(center.dx - length, center.dy + length * 0.5);
         // Arrow head
-        path.moveTo(center.dx - length + headSize, center.dy + length * 0.5 - headSize);
+        path.moveTo(
+            center.dx - length + headSize, center.dy + length * 0.5 - headSize);
         path.lineTo(center.dx - length, center.dy + length * 0.5);
-        path.lineTo(center.dx - length + headSize, center.dy + length * 0.5 + headSize);
+        path.lineTo(
+            center.dx - length + headSize, center.dy + length * 0.5 + headSize);
         break;
 
       case LaneDirection.sharpRight:
@@ -234,9 +237,11 @@ class _LaneArrowPainter extends CustomPainter {
         path.lineTo(center.dx, center.dy);
         path.lineTo(center.dx + length, center.dy + length * 0.5);
         // Arrow head
-        path.moveTo(center.dx + length - headSize, center.dy + length * 0.5 - headSize);
+        path.moveTo(
+            center.dx + length - headSize, center.dy + length * 0.5 - headSize);
         path.lineTo(center.dx + length, center.dy + length * 0.5);
-        path.lineTo(center.dx + length - headSize, center.dy + length * 0.5 + headSize);
+        path.lineTo(
+            center.dx + length - headSize, center.dy + length * 0.5 + headSize);
         break;
 
       case LaneDirection.uturn:
@@ -261,9 +266,11 @@ class _LaneArrowPainter extends CustomPainter {
         path.moveTo(center.dx + length * 0.3, center.dy + length);
         path.lineTo(center.dx - length * 0.3, center.dy - length);
         // Arrow head
-        path.moveTo(center.dx - length * 0.3 + headSize * 0.7, center.dy - length + headSize);
+        path.moveTo(center.dx - length * 0.3 + headSize * 0.7,
+            center.dy - length + headSize);
         path.lineTo(center.dx - length * 0.3, center.dy - length);
-        path.lineTo(center.dx - length * 0.3 - headSize * 0.3, center.dy - length + headSize);
+        path.lineTo(center.dx - length * 0.3 - headSize * 0.3,
+            center.dy - length + headSize);
         break;
 
       case LaneDirection.mergeToRight:
@@ -271,9 +278,11 @@ class _LaneArrowPainter extends CustomPainter {
         path.moveTo(center.dx - length * 0.3, center.dy + length);
         path.lineTo(center.dx + length * 0.3, center.dy - length);
         // Arrow head
-        path.moveTo(center.dx + length * 0.3 + headSize * 0.3, center.dy - length + headSize);
+        path.moveTo(center.dx + length * 0.3 + headSize * 0.3,
+            center.dy - length + headSize);
         path.lineTo(center.dx + length * 0.3, center.dy - length);
-        path.lineTo(center.dx + length * 0.3 - headSize * 0.7, center.dy - length + headSize);
+        path.lineTo(center.dx + length * 0.3 - headSize * 0.7,
+            center.dy - length + headSize);
         break;
 
       case LaneDirection.none:

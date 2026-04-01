@@ -81,9 +81,8 @@ class OfflineRegionsList extends StatelessWidget {
           onDownload: onDownload != null ? () => onDownload!(region) : null,
           onPause: onPause != null ? () => onPause!(region) : null,
           onResume: onResume != null ? () => onResume!(region) : null,
-          onDelete: onDelete != null
-              ? () => _handleDelete(context, region)
-              : null,
+          onDelete:
+              onDelete != null ? () => _handleDelete(context, region) : null,
           onTap: onTap != null ? () => onTap!(region) : null,
         );
       },
@@ -217,7 +216,8 @@ class OfflineRegionCard extends StatelessWidget {
                   children: [
                     _InfoChip(
                       icon: Icons.zoom_in,
-                      label: 'Zoom ${region.minZoom.toInt()}-${region.maxZoom.toInt()}',
+                      label:
+                          'Zoom ${region.minZoom.toInt()}-${region.maxZoom.toInt()}',
                     ),
                     const SizedBox(width: 12),
                     _InfoChip(

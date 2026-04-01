@@ -68,7 +68,8 @@ class SmartSearchResult extends Equatable {
       lat: (json['lat'] as num).toDouble(),
       lon: (json['lon'] as num).toDouble(),
       distanceM: json['distance_m'] as int,
-      rating: json['rating'] != null ? (json['rating'] as num).toDouble() : null,
+      rating:
+          json['rating'] != null ? (json['rating'] as num).toDouble() : null,
       placeType: json['place_type'] as String?,
       phone: json['phone'] as String?,
       website: json['website'] as String?,

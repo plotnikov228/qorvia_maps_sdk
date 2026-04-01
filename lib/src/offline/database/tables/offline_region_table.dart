@@ -59,8 +59,7 @@ class OfflineRegionTable extends Table {
   TextColumn get serverRegionId => text().nullable()();
 
   /// Type of region: 'custom' or 'preset'
-  TextColumn get regionType =>
-      text().withDefault(const Constant('custom'))();
+  TextColumn get regionType => text().withDefault(const Constant('custom'))();
 
   /// Timestamp when region was created (milliseconds since epoch)
   IntColumn get createdAt => integer()();

@@ -95,8 +95,7 @@ class ContentProgress {
   }
 
   @override
-  String toString() =>
-      'ContentProgress(${type.name}: $percent%, '
+  String toString() => 'ContentProgress(${type.name}: $percent%, '
       '$downloadedFormatted/$totalFormatted'
       '${isComplete ? ', complete' : ''}'
       '${hasFailed ? ', failed: $errorMessage' : ''})';
@@ -191,8 +190,8 @@ class PackageDownloadProgress {
     required String packageId,
     required Map<PackageContentType, ContentProgress> contentProgress,
   }) {
-    final totalBytes = contentProgress.values
-        .fold<int>(0, (sum, p) => sum + p.totalBytes);
+    final totalBytes =
+        contentProgress.values.fold<int>(0, (sum, p) => sum + p.totalBytes);
 
     NavigationLogger.info(_logTag, 'Package download completed', {
       'packageId': packageId,
@@ -272,7 +271,8 @@ class PackageDownloadProgress {
       .toList();
 
   /// Get progress for a specific content type.
-  ContentProgress? getProgress(PackageContentType type) => contentProgress[type];
+  ContentProgress? getProgress(PackageContentType type) =>
+      contentProgress[type];
 
   /// Calculates overall progress as weighted average by size.
   static double _calculateOverallProgress(
@@ -308,7 +308,8 @@ class PackageDownloadProgress {
     PackageContentType type,
     ContentProgress progress,
   ) {
-    final newProgress = Map<PackageContentType, ContentProgress>.from(contentProgress);
+    final newProgress =
+        Map<PackageContentType, ContentProgress>.from(contentProgress);
     newProgress[type] = progress;
 
     return PackageDownloadProgress(
@@ -322,8 +323,7 @@ class PackageDownloadProgress {
   }
 
   @override
-  String toString() =>
-      'PackageDownloadProgress(package: $packageId, '
+  String toString() => 'PackageDownloadProgress(package: $packageId, '
       'overall: $overallPercent%, '
       '$completedContentCount/$totalContentCount types, '
       '$downloadedSizeFormatted/$totalSizeFormatted'

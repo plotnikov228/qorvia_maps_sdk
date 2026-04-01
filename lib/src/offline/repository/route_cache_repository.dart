@@ -61,7 +61,8 @@ class RouteCacheRepository implements CacheRepository<String, RouteResponse> {
 
   /// Store route response in cache.
   @override
-  Future<void> put(String routeHash, RouteResponse value, {Duration? ttl}) async {
+  Future<void> put(String routeHash, RouteResponse value,
+      {Duration? ttl}) async {
     try {
       final now = DateTime.now().millisecondsSinceEpoch;
       final effectiveTtl = ttl ?? _config.routeTtl;
@@ -175,7 +176,8 @@ class RouteCacheRepository implements CacheRepository<String, RouteResponse> {
   Future<void> clear() async {
     try {
       final count = await _db.clearRouteCache();
-      NavigationLogger.info(_logTag, 'Cache cleared', {'entriesRemoved': count});
+      NavigationLogger.info(
+          _logTag, 'Cache cleared', {'entriesRemoved': count});
     } catch (e, stack) {
       NavigationLogger.error(_logTag, 'clear() failed', e, stack);
     }

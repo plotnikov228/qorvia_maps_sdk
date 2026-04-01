@@ -68,8 +68,10 @@ class BearingSmoother {
     final absDelta = delta.abs();
     if (absDelta > turnBoostThreshold) {
       // Progressively boost alpha as turn gets sharper
-      final turnFactor = ((absDelta - turnBoostThreshold) / 60.0).clamp(0.0, 1.0);
-      alpha = (alpha * (1.0 + turnFactor * (turnAlphaBoost - 1.0))).clamp(0.0, 0.6);
+      final turnFactor =
+          ((absDelta - turnBoostThreshold) / 60.0).clamp(0.0, 1.0);
+      alpha =
+          (alpha * (1.0 + turnFactor * (turnAlphaBoost - 1.0))).clamp(0.0, 0.6);
     }
 
     // Velocity limiting — boost for large bearing deltas so real turns

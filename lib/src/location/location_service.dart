@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart' as geo;
-import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 import '../models/coordinates.dart';
 import 'location_data.dart';
 import 'location_filter.dart';
@@ -99,40 +99,53 @@ class LocationService {
     return await geo.Geolocator.isLocationServiceEnabled();
   }
 
-  /// Checks current permission status.
+  /// Checks current permission status using geolocator (more reliable on iOS).
   Future<LocationPermissionStatus> checkPermission() async {
-    final permission = await Permission.location.status;
-    return _mapPermissionStatus(permission);
+    final permission = await geo.Geolocator.checkPermission();
+    return _mapGeolocatorPermission(permission);
   }
 
-  /// Requests location permission.
+  /// Requests location permission using geolocator (more reliable on iOS).
   Future<LocationPermissionStatus> requestPermission() async {
-    final permission = await Permission.location.request();
-    return _mapPermissionStatus(permission);
+    final permission = await geo.Geolocator.requestPermission();
+    return _mapGeolocatorPermission(permission);
   }
 
   /// Requests background location permission (for navigation).
   Future<LocationPermissionStatus> requestBackgroundPermission() async {
-    final foreground = await Permission.location.request();
-    if (!foreground.isGranted) {
-      return _mapPermissionStatus(foreground);
+    // First request whenInUse permission
+    var permission = await geo.Geolocator.checkPermission();
+    if (permission == geo.LocationPermission.denied) {
+      permission = await geo.Geolocator.requestPermission();
     }
 
-    final background = await Permission.locationAlways.request();
-    return _mapPermissionStatus(background);
+    if (permission == geo.LocationPermission.denied ||
+        permission == geo.LocationPermission.deniedForever) {
+      return _mapGeolocatorPermission(permission);
+    }
+
+    // For background permission on iOS, use permission_handler
+    // as geolocator doesn't have a separate method for "always"
+    if (permission == geo.LocationPermission.whileInUse) {
+      final background = await ph.Permission.locationAlways.request();
+      if (background.isGranted) {
+        return LocationPermissionStatus.granted;
+      }
+    }
+
+    return _mapGeolocatorPermission(permission);
   }
 
-  LocationPermissionStatus _mapPermissionStatus(PermissionStatus status) {
-    switch (status) {
-      case PermissionStatus.granted:
-      case PermissionStatus.limited:
+  LocationPermissionStatus _mapGeolocatorPermission(geo.LocationPermission permission) {
+    switch (permission) {
+      case geo.LocationPermission.always:
+      case geo.LocationPermission.whileInUse:
         return LocationPermissionStatus.granted;
-      case PermissionStatus.denied:
+      case geo.LocationPermission.denied:
         return LocationPermissionStatus.denied;
-      case PermissionStatus.permanentlyDenied:
-      case PermissionStatus.restricted:
+      case geo.LocationPermission.deniedForever:
         return LocationPermissionStatus.permanentlyDenied;
-      default:
+      case geo.LocationPermission.unableToDetermine:
         return LocationPermissionStatus.denied;
     }
   }
@@ -440,14 +453,12 @@ class LocationService {
 
   /// Opens app settings (for permission management).
   Future<bool> openAppSettings() async {
-    return await Permission.location.shouldShowRequestRationale
-        ? await openPermissionSettings()
-        : await geo.Geolocator.openAppSettings();
+    return await ph.openAppSettings();
   }
 
   /// Opens app permission settings.
   Future<bool> openPermissionSettings() async {
-    return await openAppSettings();
+    return await ph.openAppSettings();
   }
 
   geo.LocationAccuracy _mapAccuracy(LocationAccuracy accuracy) {

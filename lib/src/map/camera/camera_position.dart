@@ -17,14 +17,20 @@ class CameraPosition extends Equatable {
   /// 0 = north up, 90 = east up.
   final double bearing;
 
-  const CameraPosition({
+  /// Creates a camera position with clamped values.
+  ///
+  /// Values are automatically clamped to valid ranges:
+  /// - zoom: 0-22
+  /// - tilt: 0-60
+  /// - bearing: 0-360 (wraps around)
+  CameraPosition({
     required this.center,
-    this.zoom = 14,
-    this.tilt = 0,
-    this.bearing = 0,
-  })  : assert(zoom >= 0 && zoom <= 22, 'Zoom must be between 0 and 22'),
-        assert(tilt >= 0 && tilt <= 60, 'Tilt must be between 0 and 60'),
-        assert(bearing >= 0 && bearing < 360, 'Bearing must be between 0 and 360');
+    double zoom = 14,
+    double tilt = 0,
+    double bearing = 0,
+  })  : zoom = zoom.clamp(0, 22),
+        tilt = tilt.clamp(0, 60),
+        bearing = ((bearing % 360) + 360) % 360;
 
   /// Creates a camera position for navigation mode.
   factory CameraPosition.navigation({

@@ -44,7 +44,8 @@ class PackageListWidget extends StatelessWidget {
   final Widget? emptyWidget;
 
   /// Custom item builder for more control.
-  final Widget Function(BuildContext context, OfflinePackage package)? itemBuilder;
+  final Widget Function(BuildContext context, OfflinePackage package)?
+      itemBuilder;
 
   const PackageListWidget({
     super.key,
@@ -77,7 +78,8 @@ class PackageListWidget extends StatelessWidget {
         return PackageListItem(
           package: package,
           onTap: onPackageTap != null ? () => onPackageTap!(package) : null,
-          onDownloadTap: onDownloadTap != null ? () => onDownloadTap!(package) : null,
+          onDownloadTap:
+              onDownloadTap != null ? () => onDownloadTap!(package) : null,
           onDeleteTap: onDeleteTap != null ? () => onDeleteTap!(package) : null,
           onPauseTap: onPauseTap != null ? () => onPauseTap!(package) : null,
           onResumeTap: onResumeTap != null ? () => onResumeTap!(package) : null,
@@ -279,7 +281,11 @@ class PackageListItem extends StatelessWidget {
       case PackageStatus.pending:
         return (Icons.hourglass_empty, 'Pending', theme.colorScheme.outline);
       case PackageStatus.downloading:
-        return (Icons.downloading, package.progressPercentage, theme.colorScheme.primary);
+        return (
+          Icons.downloading,
+          package.progressPercentage,
+          theme.colorScheme.primary
+        );
       case PackageStatus.paused:
         return (Icons.pause_circle, 'Paused', theme.colorScheme.tertiary);
       case PackageStatus.completed:
@@ -299,9 +305,8 @@ class PackageListItem extends StatelessWidget {
       children: package.contentTypes.map((type) {
         final isReady = package.getContentStatus(type) == ContentStatus.ready;
         final icon = _getContentIcon(type);
-        final color = isReady
-            ? theme.colorScheme.primary
-            : theme.colorScheme.outline;
+        final color =
+            isReady ? theme.colorScheme.primary : theme.colorScheme.outline;
 
         return Tooltip(
           message: _getContentLabel(type),

@@ -429,31 +429,38 @@ class NavigationOptions {
     this.useCompassHeading = true,
     this.compassSmoothing = 8,
     this.useNativeTracking = false,
-    this.maxPredictMs = 1500,  // Allow longer prediction at high speeds
-    this.maxPredictDistanceMeters = 28.0,  // ~1 second at 100 km/h for smooth highway navigation
+    this.maxPredictMs = 1500, // Allow longer prediction at high speeds
+    this.maxPredictDistanceMeters =
+        28.0, // ~1 second at 100 km/h for smooth highway navigation
     this.minSpeedForPrediction = 0.5,
     this.turnAngleThresholdDeg = 25,
     this.turnRateThresholdDegPerSec = 90,
     this.renderDelayMs = 150,
     this.bufferMaxMs = 2000,
-    this.minBearingSmoothing = 0.08,  // Balanced for smooth rotation
-    this.maxBearingSmoothing = 0.15,  // Higher for responsive turns at speed
+    this.minBearingSmoothing = 0.08, // Balanced for smooth rotation
+    this.maxBearingSmoothing = 0.15, // Higher for responsive turns at speed
     this.cameraLookAheadMeters = 5.0,
-    this.cameraLookAheadMinSpeed = 5.0,  // Increased from 2.0 to reduce jitter at low speed
+    this.cameraLookAheadMinSpeed =
+        5.0, // Increased from 2.0 to reduce jitter at low speed
     // Camera smoothing defaults - tuned for smooth high-speed movement
-    this.cameraPositionAlphaMin = 0.12,  // Higher min for faster response at high speeds
-    this.cameraPositionAlphaMax = 0.28,  // Higher max for faster catching up to GPS
-    this.cameraDeadZoneMeters = 0.15,  // Smaller dead zone for smoother micro-movements
-    this.cameraDeadZoneDegrees = 0.5,  // Smaller for smoother rotation
-    this.speedSmoothingEnabled = true,  // Enable speed-adaptive smoothing
-    this.cameraBearingMaxVelocityLowSpeed = 30.0,  // Faster rotation at low speed
-    this.cameraBearingMaxVelocityHighSpeed = 60.0,  // Higher cap for responsive high-speed turns
+    this.cameraPositionAlphaMin =
+        0.12, // Higher min for faster response at high speeds
+    this.cameraPositionAlphaMax =
+        0.28, // Higher max for faster catching up to GPS
+    this.cameraDeadZoneMeters =
+        0.15, // Smaller dead zone for smoother micro-movements
+    this.cameraDeadZoneDegrees = 0.5, // Smaller for smoother rotation
+    this.speedSmoothingEnabled = true, // Enable speed-adaptive smoothing
+    this.cameraBearingMaxVelocityLowSpeed =
+        30.0, // Faster rotation at low speed
+    this.cameraBearingMaxVelocityHighSpeed =
+        60.0, // Higher cap for responsive high-speed turns
     // Position buffering
     this.positionBufferDurationMs = 100,
     // Bearing prediction
     this.bearingPredictionMs = 50,
     // Micro-animation / 60 FPS
-    this.smooth60FpsCamera = true,  // Enable by default for smooth navigation
+    this.smooth60FpsCamera = true, // Enable by default for smooth navigation
     this.cameraFrameAnimationMs = 16,
     // Spring physics
     this.arrowSpringTension = 150.0,
@@ -463,7 +470,7 @@ class NavigationOptions {
     this.gpsHeadingFilterAlpha = 0.2,
     this.snapToRouteEnabled = true,
     this.snapToRouteThreshold = 15.0,
-    this.snapExitThreshold = 20.0,  // Hysteresis: enter at 15m, exit at 20m
+    this.snapExitThreshold = 20.0, // Hysteresis: enter at 15m, exit at 20m
     this.snapTransitionDurationMs = 200,
     this.headingMismatchThreshold = 90.0,
     this.rerouteSnapCooldownMs = 2000,
@@ -481,7 +488,8 @@ class NavigationOptions {
     this.predictionCorrectionAlpha = 0.15,
     this.highSpeedThreshold = 15.0,
     this.autoSmooth60FpsOnHighSpeed = true,
-    this.smooth60FpsSpeedThreshold = 8.0,  // ~29 km/h - activate earlier for smoother city driving
+    this.smooth60FpsSpeedThreshold =
+        8.0, // ~29 km/h - activate earlier for smoother city driving
     // Widget customization
     this.widgetsConfig = const NavigationWidgetsConfig(),
   });
@@ -599,8 +607,10 @@ class NavigationOptions {
       tilt: tilt ?? this.tilt,
       zoom: zoom ?? this.zoom,
       trackingMode: trackingMode ?? this.trackingMode,
-      cameraAnimationDuration: cameraAnimationDuration ?? this.cameraAnimationDuration,
-      userIconVerticalOffset: userIconVerticalOffset ?? this.userIconVerticalOffset,
+      cameraAnimationDuration:
+          cameraAnimationDuration ?? this.cameraAnimationDuration,
+      userIconVerticalOffset:
+          userIconVerticalOffset ?? this.userIconVerticalOffset,
       userArrowStyle: userArrowStyle ?? this.userArrowStyle,
       cursorColor: cursorColor ?? this.cursorColor,
       cursorBorderColor: cursorBorderColor ?? this.cursorBorderColor,
@@ -608,20 +618,25 @@ class NavigationOptions {
       routeLineWidth: routeLineWidth ?? this.routeLineWidth,
       routeLineOpacity: routeLineOpacity ?? this.routeLineOpacity,
       showAccuracyCircle: showAccuracyCircle ?? this.showAccuracyCircle,
-      userLocationIconImage: userLocationIconImage ?? this.userLocationIconImage,
+      userLocationIconImage:
+          userLocationIconImage ?? this.userLocationIconImage,
       userLocationIconSize: userLocationIconSize ?? this.userLocationIconSize,
-      userLocationIconColor: userLocationIconColor ?? this.userLocationIconColor,
+      userLocationIconColor:
+          userLocationIconColor ?? this.userLocationIconColor,
       showNextTurnPanel: showNextTurnPanel ?? this.showNextTurnPanel,
       showEtaPanel: showEtaPanel ?? this.showEtaPanel,
       showSpeedIndicator: showSpeedIndicator ?? this.showSpeedIndicator,
       showRecenterButton: showRecenterButton ?? this.showRecenterButton,
       offRouteThreshold: offRouteThreshold ?? this.offRouteThreshold,
       arrivalThreshold: arrivalThreshold ?? this.arrivalThreshold,
-      stepTransitionHysteresis: stepTransitionHysteresis ?? this.stepTransitionHysteresis,
-      autoRecenterDelaySeconds: autoRecenterDelaySeconds ?? this.autoRecenterDelaySeconds,
+      stepTransitionHysteresis:
+          stepTransitionHysteresis ?? this.stepTransitionHysteresis,
+      autoRecenterDelaySeconds:
+          autoRecenterDelaySeconds ?? this.autoRecenterDelaySeconds,
       autoReroute: autoReroute ?? this.autoReroute,
       simulateLocation: simulateLocation ?? this.simulateLocation,
-      simulationSpeedMultiplier: simulationSpeedMultiplier ?? this.simulationSpeedMultiplier,
+      simulationSpeedMultiplier:
+          simulationSpeedMultiplier ?? this.simulationSpeedMultiplier,
       useCompassHeading: useCompassHeading ?? this.useCompassHeading,
       compassSmoothing: compassSmoothing ?? this.compassSmoothing,
       useNativeTracking: useNativeTracking ?? this.useNativeTracking,
@@ -638,44 +653,69 @@ class NavigationOptions {
       bufferMaxMs: bufferMaxMs ?? this.bufferMaxMs,
       minBearingSmoothing: minBearingSmoothing ?? this.minBearingSmoothing,
       maxBearingSmoothing: maxBearingSmoothing ?? this.maxBearingSmoothing,
-      cameraLookAheadMeters: cameraLookAheadMeters ?? this.cameraLookAheadMeters,
-      cameraLookAheadMinSpeed: cameraLookAheadMinSpeed ?? this.cameraLookAheadMinSpeed,
-      cameraPositionAlphaMin: cameraPositionAlphaMin ?? this.cameraPositionAlphaMin,
-      cameraPositionAlphaMax: cameraPositionAlphaMax ?? this.cameraPositionAlphaMax,
+      cameraLookAheadMeters:
+          cameraLookAheadMeters ?? this.cameraLookAheadMeters,
+      cameraLookAheadMinSpeed:
+          cameraLookAheadMinSpeed ?? this.cameraLookAheadMinSpeed,
+      cameraPositionAlphaMin:
+          cameraPositionAlphaMin ?? this.cameraPositionAlphaMin,
+      cameraPositionAlphaMax:
+          cameraPositionAlphaMax ?? this.cameraPositionAlphaMax,
       cameraDeadZoneMeters: cameraDeadZoneMeters ?? this.cameraDeadZoneMeters,
-      cameraDeadZoneDegrees: cameraDeadZoneDegrees ?? this.cameraDeadZoneDegrees,
-      speedSmoothingEnabled: speedSmoothingEnabled ?? this.speedSmoothingEnabled,
-      cameraBearingMaxVelocityLowSpeed: cameraBearingMaxVelocityLowSpeed ?? this.cameraBearingMaxVelocityLowSpeed,
-      cameraBearingMaxVelocityHighSpeed: cameraBearingMaxVelocityHighSpeed ?? this.cameraBearingMaxVelocityHighSpeed,
-      positionBufferDurationMs: positionBufferDurationMs ?? this.positionBufferDurationMs,
+      cameraDeadZoneDegrees:
+          cameraDeadZoneDegrees ?? this.cameraDeadZoneDegrees,
+      speedSmoothingEnabled:
+          speedSmoothingEnabled ?? this.speedSmoothingEnabled,
+      cameraBearingMaxVelocityLowSpeed: cameraBearingMaxVelocityLowSpeed ??
+          this.cameraBearingMaxVelocityLowSpeed,
+      cameraBearingMaxVelocityHighSpeed: cameraBearingMaxVelocityHighSpeed ??
+          this.cameraBearingMaxVelocityHighSpeed,
+      positionBufferDurationMs:
+          positionBufferDurationMs ?? this.positionBufferDurationMs,
       bearingPredictionMs: bearingPredictionMs ?? this.bearingPredictionMs,
-      cameraFrameAnimationMs: cameraFrameAnimationMs ?? this.cameraFrameAnimationMs,
+      cameraFrameAnimationMs:
+          cameraFrameAnimationMs ?? this.cameraFrameAnimationMs,
       arrowSpringTension: arrowSpringTension ?? this.arrowSpringTension,
       arrowSpringFriction: arrowSpringFriction ?? this.arrowSpringFriction,
-      gpsPositionFilterAlpha: gpsPositionFilterAlpha ?? this.gpsPositionFilterAlpha,
-      gpsHeadingFilterAlpha: gpsHeadingFilterAlpha ?? this.gpsHeadingFilterAlpha,
+      gpsPositionFilterAlpha:
+          gpsPositionFilterAlpha ?? this.gpsPositionFilterAlpha,
+      gpsHeadingFilterAlpha:
+          gpsHeadingFilterAlpha ?? this.gpsHeadingFilterAlpha,
       snapToRouteEnabled: snapToRouteEnabled ?? this.snapToRouteEnabled,
       snapToRouteThreshold: snapToRouteThreshold ?? this.snapToRouteThreshold,
       snapExitThreshold: snapExitThreshold ?? this.snapExitThreshold,
-      snapTransitionDurationMs: snapTransitionDurationMs ?? this.snapTransitionDurationMs,
-      headingMismatchThreshold: headingMismatchThreshold ?? this.headingMismatchThreshold,
-      rerouteSnapCooldownMs: rerouteSnapCooldownMs ?? this.rerouteSnapCooldownMs,
-      destinationRerouteThreshold: destinationRerouteThreshold ?? this.destinationRerouteThreshold,
-      preventRepeatedDestinationReroute: preventRepeatedDestinationReroute ?? this.preventRepeatedDestinationReroute,
-      upcomingInstructionThreshold: upcomingInstructionThreshold ?? this.upcomingInstructionThreshold,
+      snapTransitionDurationMs:
+          snapTransitionDurationMs ?? this.snapTransitionDurationMs,
+      headingMismatchThreshold:
+          headingMismatchThreshold ?? this.headingMismatchThreshold,
+      rerouteSnapCooldownMs:
+          rerouteSnapCooldownMs ?? this.rerouteSnapCooldownMs,
+      destinationRerouteThreshold:
+          destinationRerouteThreshold ?? this.destinationRerouteThreshold,
+      preventRepeatedDestinationReroute: preventRepeatedDestinationReroute ??
+          this.preventRepeatedDestinationReroute,
+      upcomingInstructionThreshold:
+          upcomingInstructionThreshold ?? this.upcomingInstructionThreshold,
       logLevel: logLevel ?? this.logLevel,
-      enableVoiceInstructions: enableVoiceInstructions ?? this.enableVoiceInstructions,
+      enableVoiceInstructions:
+          enableVoiceInstructions ?? this.enableVoiceInstructions,
       voiceGuidanceOptions: voiceGuidanceOptions ?? this.voiceGuidanceOptions,
       widgetsConfig: widgetsConfig ?? this.widgetsConfig,
       smooth60FpsCamera: smooth60FpsCamera ?? this.smooth60FpsCamera,
-      motionPredictionEnabled: motionPredictionEnabled ?? this.motionPredictionEnabled,
-      motionPredictionBufferSize: motionPredictionBufferSize ?? this.motionPredictionBufferSize,
+      motionPredictionEnabled:
+          motionPredictionEnabled ?? this.motionPredictionEnabled,
+      motionPredictionBufferSize:
+          motionPredictionBufferSize ?? this.motionPredictionBufferSize,
       maxJerkThreshold: maxJerkThreshold ?? this.maxJerkThreshold,
-      minPredictionConfidence: minPredictionConfidence ?? this.minPredictionConfidence,
-      predictionCorrectionAlpha: predictionCorrectionAlpha ?? this.predictionCorrectionAlpha,
+      minPredictionConfidence:
+          minPredictionConfidence ?? this.minPredictionConfidence,
+      predictionCorrectionAlpha:
+          predictionCorrectionAlpha ?? this.predictionCorrectionAlpha,
       highSpeedThreshold: highSpeedThreshold ?? this.highSpeedThreshold,
-      autoSmooth60FpsOnHighSpeed: autoSmooth60FpsOnHighSpeed ?? this.autoSmooth60FpsOnHighSpeed,
-      smooth60FpsSpeedThreshold: smooth60FpsSpeedThreshold ?? this.smooth60FpsSpeedThreshold,
+      autoSmooth60FpsOnHighSpeed:
+          autoSmooth60FpsOnHighSpeed ?? this.autoSmooth60FpsOnHighSpeed,
+      smooth60FpsSpeedThreshold:
+          smooth60FpsSpeedThreshold ?? this.smooth60FpsSpeedThreshold,
     );
   }
 }

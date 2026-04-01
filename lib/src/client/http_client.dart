@@ -185,7 +185,8 @@ class _TimeHeaderInterceptor extends Interceptor {
     final isDaytime = hour >= 6 && hour < 18;
 
     options.headers['X-Local-Time'] = now.toIso8601String();
-    options.headers['X-Timezone-Offset'] = now.timeZoneOffset.inMinutes.toString();
+    options.headers['X-Timezone-Offset'] =
+        now.timeZoneOffset.inMinutes.toString();
     options.headers['X-Is-Daytime'] = isDaytime.toString();
 
     handler.next(options);

@@ -17,7 +17,8 @@ class LocationFilter {
 
   // Параметры фильтра
   final double _processNoise; // Q - шум процесса (м²)
-  final double _minAccuracyThreshold; // Минимальная точность для принятия данных
+  final double
+      _minAccuracyThreshold; // Минимальная точность для принятия данных
   final double _maxSpeedThreshold; // Максимальная разумная скорость (м/с)
   final double _maxAccelerationThreshold; // Макс. ускорение (м/с²)
 
@@ -25,10 +26,13 @@ class LocationFilter {
   LocationData? _lastLocation;
 
   // Ограничения для предотвращения деградации фильтра
-  static const double _maxVariance = 10000.0; // ~100м максимальная неопределённость
+  static const double _maxVariance =
+      10000.0; // ~100м максимальная неопределённость
   static const double _minVariance = 1.0; // ~1м минимальная неопределённость
-  static const Duration _staleThreshold = Duration(seconds: 60); // Порог устаревания
-  static const Duration _longPauseThreshold = Duration(seconds: 10); // Порог длинной паузы
+  static const Duration _staleThreshold =
+      Duration(seconds: 60); // Порог устаревания
+  static const Duration _longPauseThreshold =
+      Duration(seconds: 10); // Порог длинной паузы
 
   LocationFilter({
     double processNoise = 3.0,
@@ -92,7 +96,8 @@ class LocationFilter {
     // Проверка ускорения с адаптивным порогом
     if (_lastLocation != null && _lastTimestamp != null) {
       final lastSpeed = _lastLocation!.speed ?? 0;
-      final dt = data.timestamp.difference(_lastTimestamp!).inMilliseconds / 1000.0;
+      final dt =
+          data.timestamp.difference(_lastTimestamp!).inMilliseconds / 1000.0;
 
       if (dt > 0) {
         final acceleration = (speed - lastSpeed).abs() / dt;
@@ -102,7 +107,8 @@ class LocationFilter {
         // - При высокой скорости используем строгий порог
         final isLowSpeed = speed < 2.0 && lastSpeed < 2.0;
         final effectiveThreshold = isLowSpeed
-            ? _maxAccelerationThreshold * 2.0 // Более мягкий порог при низкой скорости
+            ? _maxAccelerationThreshold *
+                2.0 // Более мягкий порог при низкой скорости
             : _maxAccelerationThreshold;
 
         if (acceleration > effectiveThreshold) {
@@ -119,7 +125,8 @@ class LocationFilter {
       return true;
     }
 
-    final dt = data.timestamp.difference(_lastTimestamp!).inMilliseconds / 1000.0;
+    final dt =
+        data.timestamp.difference(_lastTimestamp!).inMilliseconds / 1000.0;
     if (dt <= 0) return true;
 
     // После длинной паузы разрешаем большие скачки -
@@ -173,7 +180,8 @@ class LocationFilter {
 
     // Predict step: увеличиваем неопределённость со временем
     // Ограничиваем рост чтобы фильтр не "забывал" состояние полностью
-    _variance = (_variance + adaptiveProcessNoise * dt).clamp(_minVariance, _maxVariance);
+    _variance = (_variance + adaptiveProcessNoise * dt)
+        .clamp(_minVariance, _maxVariance);
 
     // Update step: Kalman gain
     final kalmanGain = _variance / (_variance + measurementNoise);
@@ -194,7 +202,8 @@ class LocationFilter {
     _heading = _smoothHeading(raw.heading);
 
     // Обновляем ковариацию с ограничением
-    _variance = ((1 - kalmanGain) * _variance).clamp(_minVariance, _maxVariance);
+    _variance =
+        ((1 - kalmanGain) * _variance).clamp(_minVariance, _maxVariance);
 
     return LocationData(
       coordinates: Coordinates(lat: _lat!, lon: _lon!),

@@ -67,8 +67,7 @@ class OfflineBounds {
       );
 
   @override
-  String toString() =>
-      'OfflineBounds(sw: $southwest, ne: $northeast)';
+  String toString() => 'OfflineBounds(sw: $southwest, ne: $northeast)';
 }
 
 /// Represents an offline map region with its metadata and download status.
@@ -226,8 +225,7 @@ class OfflineRegion {
   }
 
   @override
-  String toString() =>
-      'OfflineRegion(id: $id, name: $name, status: $status, '
+  String toString() => 'OfflineRegion(id: $id, name: $name, status: $status, '
       'progress: $progressPercentage, size: $sizeFormatted)';
 
   @override
@@ -302,7 +300,8 @@ class CreateOfflineRegionParams {
       // Convert lat/lon to tile coordinates
       final minTileX = _lonToTileX(bounds.southwest.lon, zoom);
       final maxTileX = _lonToTileX(bounds.northeast.lon, zoom);
-      final minTileY = _latToTileY(bounds.northeast.lat, zoom); // Note: Y is inverted
+      final minTileY =
+          _latToTileY(bounds.northeast.lat, zoom); // Note: Y is inverted
       final maxTileY = _latToTileY(bounds.southwest.lat, zoom);
 
       final tilesX = (maxTileX - minTileX + 1).clamp(1, tilesPerSide);
@@ -345,7 +344,11 @@ class CreateOfflineRegionParams {
   int _latToTileY(double lat, int zoom) {
     final latRad = lat * math.pi / 180.0;
     final n = 1 << zoom;
-    return ((1.0 - math.log(math.tan(latRad) + 1.0 / math.cos(latRad)) / math.pi) / 2.0 * n).floor();
+    return ((1.0 -
+                math.log(math.tan(latRad) + 1.0 / math.cos(latRad)) / math.pi) /
+            2.0 *
+            n)
+        .floor();
   }
 
   /// Creates a recommended configuration with a maximum tile limit.

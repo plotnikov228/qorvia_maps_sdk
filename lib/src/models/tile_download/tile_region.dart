@@ -75,7 +75,8 @@ class TileRegion {
       bounds: bounds,
       minZoom: json['min_zoom'] as int? ?? 0,
       maxZoom: json['max_zoom'] as int? ?? 16,
-      sizeMb: (json['estimated_size_mb'] as num? ?? json['size_mb'] as num).toDouble(),
+      sizeMb: (json['estimated_size_mb'] as num? ?? json['size_mb'] as num)
+          .toDouble(),
       tilesCount: json['tiles_count'] as int,
     );
   }

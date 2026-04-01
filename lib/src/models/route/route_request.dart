@@ -45,12 +45,13 @@ class RouteRequest {
     this.language = 'en',
   }) {
     if (waypoints != null && waypoints!.length > kMaxWaypoints) {
-      debugPrint('[RouteRequest] ERROR: waypoints count ${waypoints!.length} exceeds max $kMaxWaypoints');
-      throw ArgumentError('Maximum $kMaxWaypoints waypoints allowed, got ${waypoints!.length}');
-    }
-    if (waypoints != null) {
+      debugPrint(
+          '[RouteRequest] ERROR: waypoints count ${waypoints!.length} exceeds max $kMaxWaypoints');
       debugPrint('[RouteRequest] Created with ${waypoints!.length} waypoints');
+      throw ArgumentError(
+          'Maximum $kMaxWaypoints waypoints allowed, got ${waypoints!.length}');
     }
+    if (waypoints != null) {}
   }
 
   Map<String, dynamic> toJson() => {

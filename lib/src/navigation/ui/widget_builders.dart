@@ -177,7 +177,8 @@ class NavigationWidgetColors {
       speedOverLimit: speedOverLimit ?? this.speedOverLimit,
       speedLimitBorder: speedLimitBorder ?? this.speedLimitBorder,
       routeProgressActive: routeProgressActive ?? this.routeProgressActive,
-      routeProgressTraveled: routeProgressTraveled ?? this.routeProgressTraveled,
+      routeProgressTraveled:
+          routeProgressTraveled ?? this.routeProgressTraveled,
       etaPanelBackground: etaPanelBackground ?? this.etaPanelBackground,
       etaPanelText: etaPanelText ?? this.etaPanelText,
       etaPanelSecondary: etaPanelSecondary ?? this.etaPanelSecondary,

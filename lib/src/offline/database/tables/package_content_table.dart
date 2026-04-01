@@ -14,13 +14,15 @@ class PackageContentTable extends Table {
   IntColumn get id => integer().autoIncrement()();
 
   /// Package ID (foreign key to OfflinePackageTable)
-  TextColumn get packageId => text().references(OfflinePackageTable, #packageId)();
+  TextColumn get packageId =>
+      text().references(OfflinePackageTable, #packageId)();
 
   /// Content type: tiles, routing, geocoding, reverseGeocoding
   TextColumn get contentType => text()();
 
   /// Content status: notDownloaded, queued, downloading, ready, failed, updateAvailable
-  TextColumn get status => text().withDefault(const Constant('notDownloaded'))();
+  TextColumn get status =>
+      text().withDefault(const Constant('notDownloaded'))();
 
   /// Path to the downloaded file
   TextColumn get filePath => text().nullable()();

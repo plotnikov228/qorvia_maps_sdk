@@ -14,7 +14,8 @@ const _logTag = 'ReverseCacheRepo';
 ///
 /// Stores reverse geocoding results in SQLite with spatial bucketing
 /// for efficient coordinate-based lookups.
-class ReverseCacheRepository implements CacheRepository<String, ReverseResponse> {
+class ReverseCacheRepository
+    implements CacheRepository<String, ReverseResponse> {
   final CacheDatabase _db;
   final OfflineConfig _config;
 
@@ -156,7 +157,8 @@ class ReverseCacheRepository implements CacheRepository<String, ReverseResponse>
   Future<void> clear() async {
     try {
       final count = await _db.clearReverseCache();
-      NavigationLogger.info(_logTag, 'Cache cleared', {'entriesRemoved': count});
+      NavigationLogger.info(
+          _logTag, 'Cache cleared', {'entriesRemoved': count});
     } catch (e, stack) {
       NavigationLogger.error(_logTag, 'clear() failed', e, stack);
     }

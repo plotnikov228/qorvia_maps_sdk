@@ -57,7 +57,8 @@ class RateLimitException extends QorviaMapsException {
   }) : super(statusCode: 429);
 
   @override
-  String toString() => 'RateLimitException: $message (retry after: ${retryAfter}s)';
+  String toString() =>
+      'RateLimitException: $message (retry after: ${retryAfter}s)';
 }
 
 /// 400 Bad Request - Invalid request parameters.

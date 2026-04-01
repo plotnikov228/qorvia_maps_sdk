@@ -54,7 +54,8 @@ class RouteCursorEngine {
   double _gpsDistanceFromRoute = 0;
   bool _isOnRoute = true;
   double _lastGpsSpeed = 0;
-  DateTime _lastGpsTime = DateTime.now(); // Time of last GPS update for extrapolation
+  DateTime _lastGpsTime =
+      DateTime.now(); // Time of last GPS update for extrapolation
 
   // Deceleration flag — set when GPS projects behind cursor
   bool _isDecelerating = false;
@@ -123,12 +124,11 @@ class RouteCursorEngine {
     _isOnRoute = true;
     _isDecelerating = false;
     _currentPosition = polyline.isNotEmpty ? polyline.first : null;
-    _currentBearing = polyline.length >= 2
-        ? polyline[0].bearingTo(polyline[1])
-        : 0;
+    _currentBearing =
+        polyline.length >= 2 ? polyline[0].bearingTo(polyline[1]) : 0;
     _currentSegmentIndex = 0;
     _upcomingTurn = null;
-    
+
     NavigationLogger.info('RouteCursorEngine', 'Route set', {
       'points': polyline.length,
       'totalDistance': _totalDistance.round(),
@@ -192,7 +192,6 @@ class RouteCursorEngine {
         'distFromRoute': _gpsDistanceFromRoute.toStringAsFixed(1),
       });
     }
-
   }
 
   // --- Frame advance ---
@@ -210,9 +209,20 @@ class RouteCursorEngine {
     // --- Extrapolate GPS position ---
     // GPS updates come ~1Hz, but we need smooth cursor movement at 60fps.
     // Extrapolate where GPS should be NOW based on last known position + speed.
-    final timeSinceGps = DateTime.now().difference(_lastGpsTime).inMilliseconds / 1000.0;
-    final extrapolatedGpsDistance = (_gpsDistanceAlongRoute + _lastGpsSpeed * timeSinceGps)
-        .clamp(0.0, _totalDistance);
+    final timeSinceGps =
+        DateTime.now().difference(_lastGpsTime).inMilliseconds / 1000.0;
+
+    // Near destination guard: limit extrapolation to prevent overshoot/jump
+    // When within 100m of end, use shorter extrapolation window
+    final distanceToEnd = _totalDistance - _distanceAlongRoute;
+    final maxExtrapolationTime = distanceToEnd < 100.0
+        ? 0.3 // Max 0.3s extrapolation when near destination
+        : 2.0; // Normal extrapolation window
+    final clampedTimeSinceGps = timeSinceGps.clamp(0.0, maxExtrapolationTime);
+
+    final extrapolatedGpsDistance =
+        (_gpsDistanceAlongRoute + _lastGpsSpeed * clampedTimeSinceGps)
+            .clamp(0.0, _totalDistance);
 
     // --- Velocity control ---
     _updateVelocityWithExtrapolation(dtSec, extrapolatedGpsDistance);
@@ -242,7 +252,8 @@ class RouteCursorEngine {
   /// 1. Extrapolate where GPS should be NOW
   /// 2. Target velocity = GPS speed + small correction for gap
   /// 3. Smoothly transition to target velocity
-  void _updateVelocityWithExtrapolation(double dtSec, double extrapolatedGpsDistance) {
+  void _updateVelocityWithExtrapolation(
+      double dtSec, double extrapolatedGpsDistance) {
     // Acceleration limits (m/s²)
     const maxAcceleration = 3.0;
     const maxDeceleration = 4.0;
@@ -311,7 +322,8 @@ class RouteCursorEngine {
   /// Returns 1.0 (no reduction) to 0.5 (maximum reduction for sharp turns).
   /// The minimum factor is increased to prevent excessive cursor lag during turns.
   double _turnVelocityFactor(_UpcomingTurn turn) {
-    const slowdownDistance = 25.0; // meters before turn to start slowing (reduced from 30)
+    const slowdownDistance =
+        25.0; // meters before turn to start slowing (reduced from 30)
     if (turn.distance > slowdownDistance) return 1.0;
 
     // How close we are (0 = at turn, 1 = at slowdown start)
@@ -322,7 +334,8 @@ class RouteCursorEngine {
 
     // Minimum velocity factor based on sharpness
     // Increased from 0.3-0.7 range to 0.5-0.8 range to reduce cursor lag
-    final minFactor = 0.5 + 0.3 * (1.0 - sharpness); // 0.5 for U-turn, 0.8 for mild
+    final minFactor =
+        0.5 + 0.3 * (1.0 - sharpness); // 0.5 for U-turn, 0.8 for mild
 
     // Interpolate: full speed at slowdown distance, minimum at turn
     final factor = minFactor + (1.0 - minFactor) * proximity;
@@ -396,9 +409,7 @@ class RouteCursorEngine {
 
   /// Computes the distance along route at a given segment and point.
   double _distanceAtSegment(int segmentIndex, Coordinates point) {
-    double dist = segmentIndex > 0
-        ? _cumulativeDistances[segmentIndex - 1]
-        : 0;
+    double dist = segmentIndex > 0 ? _cumulativeDistances[segmentIndex - 1] : 0;
     dist += _polyline[segmentIndex].distanceTo(point);
     return dist;
   }
@@ -424,7 +435,8 @@ class RouteCursorEngine {
 
     final segStart = _polyline[segIndex];
     final segEnd = _polyline[segIndex + 1];
-    final segStartDist = segIndex > 0 ? _cumulativeDistances[segIndex - 1] : 0.0;
+    final segStartDist =
+        segIndex > 0 ? _cumulativeDistances[segIndex - 1] : 0.0;
     final segLength = _polyline[segIndex].distanceTo(_polyline[segIndex + 1]);
 
     if (segLength < 0.001) {
@@ -478,10 +490,10 @@ class RouteCursorEngine {
   _ClosestResult _findClosestPoint(Coordinates point) {
     // Windowed search around current segment for performance
     final windowSize = 20;
-    final start = (_currentSegmentIndex - windowSize ~/ 2)
-        .clamp(0, _polyline.length - 2);
-    final end = (_currentSegmentIndex + windowSize)
-        .clamp(0, _polyline.length - 1);
+    final start =
+        (_currentSegmentIndex - windowSize ~/ 2).clamp(0, _polyline.length - 2);
+    final end =
+        (_currentSegmentIndex + windowSize).clamp(0, _polyline.length - 1);
 
     double bestDist = double.infinity;
     int bestSeg = _currentSegmentIndex;

@@ -54,7 +54,8 @@ class OfflineRegionPicker extends StatefulWidget {
   final VoidCallback? onCancel;
 
   /// Function to convert screen position to coordinates.
-  final Future<Coordinates?> Function(Offset screenPosition)? screenToCoordinates;
+  final Future<Coordinates?> Function(Offset screenPosition)?
+      screenToCoordinates;
 
   /// Custom map widget builder.
   /// If null, only the selection overlay is shown.

@@ -132,10 +132,12 @@ class SdkLogger {
   }
 
   /// Get set of currently enabled components (for debugging).
-  static Set<String> get enabledComponents => NavigationLogger.enabledComponents;
+  static Set<String> get enabledComponents =>
+      NavigationLogger.enabledComponents;
 
   /// Get set of currently disabled components (for debugging).
-  static Set<String> get disabledComponents => NavigationLogger.disabledComponents;
+  static Set<String> get disabledComponents =>
+      NavigationLogger.disabledComponents;
 
   // ============================================================
   // Convenience Methods for Specific Components

@@ -46,7 +46,8 @@ class OfflinePackageTable extends Table {
   IntColumn get totalSizeBytes => integer().withDefault(const Constant(0))();
 
   /// Total downloaded bytes across all content
-  IntColumn get downloadedSizeBytes => integer().withDefault(const Constant(0))();
+  IntColumn get downloadedSizeBytes =>
+      integer().withDefault(const Constant(0))();
 
   /// Error message if status is failed
   TextColumn get errorMessage => text().nullable()();

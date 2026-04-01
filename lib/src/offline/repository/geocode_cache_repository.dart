@@ -14,7 +14,8 @@ const _logTag = 'GeocodeCacheRepo';
 ///
 /// Stores geocoding results in SQLite with configurable TTL.
 /// Uses query hash for efficient lookup.
-class GeocodeCacheRepository implements CacheRepository<String, GeocodeResponse> {
+class GeocodeCacheRepository
+    implements CacheRepository<String, GeocodeResponse> {
   final CacheDatabase _db;
   final OfflineConfig _config;
 
@@ -60,7 +61,8 @@ class GeocodeCacheRepository implements CacheRepository<String, GeocodeResponse>
 
   /// Store geocoding response in cache.
   @override
-  Future<void> put(String queryHash, GeocodeResponse value, {Duration? ttl}) async {
+  Future<void> put(String queryHash, GeocodeResponse value,
+      {Duration? ttl}) async {
     try {
       final now = DateTime.now().millisecondsSinceEpoch;
       final effectiveTtl = ttl ?? _config.geocodeTtl;
@@ -140,7 +142,8 @@ class GeocodeCacheRepository implements CacheRepository<String, GeocodeResponse>
   Future<void> clear() async {
     try {
       final count = await _db.clearGeocodeCache();
-      NavigationLogger.info(_logTag, 'Cache cleared', {'entriesRemoved': count});
+      NavigationLogger.info(
+          _logTag, 'Cache cleared', {'entriesRemoved': count});
     } catch (e, stack) {
       NavigationLogger.error(_logTag, 'clear() failed', e, stack);
     }
@@ -178,7 +181,8 @@ class GeocodeCacheRepository implements CacheRepository<String, GeocodeResponse>
       final count = await _db.countGeocodeCache();
       if (count > _config.maxGeocodeEntries) {
         // Remove oldest entries to get below limit
-        final toRemove = count - _config.maxGeocodeEntries + 10; // Remove 10 extra
+        final toRemove =
+            count - _config.maxGeocodeEntries + 10; // Remove 10 extra
         NavigationLogger.debug(_logTag, 'Enforcing max entries', {
           'currentCount': count,
           'maxAllowed': _config.maxGeocodeEntries,

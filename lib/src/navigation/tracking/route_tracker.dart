@@ -101,8 +101,8 @@ class RouteTracker {
             (_polyline[_closestSegmentIndex].distanceTo(_snappedPosition!))
         : _polyline[0].distanceTo(_snappedPosition!);
 
-    final distanceRemaining =
-        (_totalRouteDistance - distanceTraveled).clamp(0.0, _totalRouteDistance);
+    final distanceRemaining = (_totalRouteDistance - distanceTraveled)
+        .clamp(0.0, _totalRouteDistance);
 
     // 5. Calculate distance to next step
     final distanceToNextStep = _distanceToStepBoundary(_currentStepIndex + 1);
@@ -168,15 +168,18 @@ class RouteTracker {
   _ClosestPointResult _findClosestPoint(Coordinates point) {
     // Windowed search: only check segments near current index
     final windowSize = 20;
-    final start = (_closestSegmentIndex - windowSize ~/ 2).clamp(0, _polyline.length - 2);
-    final end = (_closestSegmentIndex + windowSize).clamp(0, _polyline.length - 1);
+    final start =
+        (_closestSegmentIndex - windowSize ~/ 2).clamp(0, _polyline.length - 2);
+    final end =
+        (_closestSegmentIndex + windowSize).clamp(0, _polyline.length - 1);
 
     double bestDist = double.infinity;
     int bestSeg = _closestSegmentIndex;
     Coordinates bestPoint = _polyline.isNotEmpty ? _polyline[0] : point;
 
     for (int i = start; i < end; i++) {
-      final projected = _projectOntoSegment(point, _polyline[i], _polyline[i + 1]);
+      final projected =
+          _projectOntoSegment(point, _polyline[i], _polyline[i + 1]);
       final dist = point.distanceTo(projected);
 
       if (dist < bestDist) {
@@ -276,10 +279,13 @@ class RouteTracker {
 
     // Distance from current position to step boundary
     double dist = 0;
-    if (_snappedPosition != null && _closestSegmentIndex + 1 < _polyline.length) {
+    if (_snappedPosition != null &&
+        _closestSegmentIndex + 1 < _polyline.length) {
       dist += _snappedPosition!.distanceTo(_polyline[_closestSegmentIndex + 1]);
     }
-    for (int i = _closestSegmentIndex + 1; i < targetSeg && i + 1 < _polyline.length; i++) {
+    for (int i = _closestSegmentIndex + 1;
+        i < targetSeg && i + 1 < _polyline.length;
+        i++) {
       dist += _polyline[i].distanceTo(_polyline[i + 1]);
     }
     return dist;

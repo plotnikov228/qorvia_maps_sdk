@@ -67,7 +67,8 @@ class LocationSettings {
       accuracy: accuracy ?? this.accuracy,
       distanceFilter: distanceFilter ?? this.distanceFilter,
       intervalMs: intervalMs ?? this.intervalMs,
-      allowBackgroundUpdates: allowBackgroundUpdates ?? this.allowBackgroundUpdates,
+      allowBackgroundUpdates:
+          allowBackgroundUpdates ?? this.allowBackgroundUpdates,
     );
   }
 }

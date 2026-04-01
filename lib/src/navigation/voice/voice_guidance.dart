@@ -194,7 +194,8 @@ class VoiceGuidance {
       return;
     }
     if (!options.enabled) {
-      NavigationLogger.info('VoiceGuidance', 'Voice guidance disabled in options');
+      NavigationLogger.info(
+          'VoiceGuidance', 'Voice guidance disabled in options');
       return;
     }
 
@@ -254,9 +255,11 @@ class VoiceGuidance {
       });
 
       _initialized = true;
-      NavigationLogger.info('VoiceGuidance', 'TTS initialized successfully with queue support');
+      NavigationLogger.info(
+          'VoiceGuidance', 'TTS initialized successfully with queue support');
     } catch (error, stack) {
-      NavigationLogger.error('VoiceGuidance', 'Failed to initialize TTS', error, stack);
+      NavigationLogger.error(
+          'VoiceGuidance', 'Failed to initialize TTS', error, stack);
     }
   }
 
@@ -268,7 +271,8 @@ class VoiceGuidance {
   ///
   /// [overrideText] - if provided, speaks this text instead of voiceInstruction/instruction.
   /// Useful for reroute scenarios where instruction is preferred over voiceInstruction.
-  Future<void> speakStep(RouteStep step, int stepIndex, {String? overrideText}) async {
+  Future<void> speakStep(RouteStep step, int stepIndex,
+      {String? overrideText}) async {
     if (!options.enabled) return;
     if (_lastSpokenStepIndex == stepIndex) return;
 
@@ -279,7 +283,8 @@ class VoiceGuidance {
     // Also set _lastShortSpokenStepIndex to prevent speakShortInstruction() from repeating
     _lastShortSpokenStepIndex = stepIndex;
 
-    NavigationLogger.debug('VoiceGuidance', 'speakStep deduplication state updated', {
+    NavigationLogger.debug(
+        'VoiceGuidance', 'speakStep deduplication state updated', {
       'stepIndex': stepIndex,
       'lastSpoken': _lastSpokenStepIndex,
       'lastUpcoming': _lastUpcomingSpokenStepIndex,
@@ -294,7 +299,8 @@ class VoiceGuidance {
       instructionType = 'override';
     } else {
       textToSpeak = step.voiceInstruction ?? step.instruction;
-      instructionType = step.voiceInstruction != null ? 'voiceInstruction' : 'instruction';
+      instructionType =
+          step.voiceInstruction != null ? 'voiceInstruction' : 'instruction';
     }
     NavigationLogger.info('VoiceGuidance', 'speakStep enqueueing', {
       'stepIndex': stepIndex,
@@ -306,10 +312,12 @@ class VoiceGuidance {
 
     // Speak next maneuver hint if available (also queued)
     if (step.nextManeuverHint != null) {
-      NavigationLogger.debug('VoiceGuidance', 'speakStep enqueueing nextManeuverHint', {
+      NavigationLogger.debug(
+          'VoiceGuidance', 'speakStep enqueueing nextManeuverHint', {
         'stepIndex': stepIndex,
       });
-      _enqueue(step.nextManeuverHint!, VoicePriority.normal, stepIndex: stepIndex);
+      _enqueue(step.nextManeuverHint!, VoicePriority.normal,
+          stepIndex: stepIndex);
     }
   }
 
@@ -322,7 +330,8 @@ class VoiceGuidance {
   /// Returns true if instruction was queued, false if skipped (already spoken).
   Future<bool> speakShortInstruction(RouteStep step, int stepIndex) async {
     if (!options.enabled) {
-      NavigationLogger.debug('VoiceGuidance', 'speakShortInstruction skipped - disabled');
+      NavigationLogger.debug(
+          'VoiceGuidance', 'speakShortInstruction skipped - disabled');
       return false;
     }
 
@@ -357,7 +366,8 @@ class VoiceGuidance {
   /// Returns true if instruction was queued, false if skipped (already spoken).
   Future<bool> speakUpcomingStep(RouteStep step, int stepIndex) async {
     if (!options.enabled) {
-      NavigationLogger.debug('VoiceGuidance', 'speakUpcomingStep skipped - disabled');
+      NavigationLogger.debug(
+          'VoiceGuidance', 'speakUpcomingStep skipped - disabled');
       return false;
     }
 
@@ -373,21 +383,24 @@ class VoiceGuidance {
 
     // Use voiceInstruction for full instruction, fallback to instruction
     final textToSpeak = step.voiceInstruction ?? step.instruction;
-    final instructionType = step.voiceInstruction != null
-        ? 'voiceInstruction'
-        : 'instruction';
-    NavigationLogger.info('VoiceGuidance', 'speakUpcomingStep enqueueing UPCOMING', {
+    final instructionType =
+        step.voiceInstruction != null ? 'voiceInstruction' : 'instruction';
+    NavigationLogger.info(
+        'VoiceGuidance', 'speakUpcomingStep enqueueing UPCOMING', {
       'stepIndex': stepIndex,
       'instructionType': instructionType,
       'priority': 'normal',
-      'textPreview': textToSpeak.length > 50 ? '${textToSpeak.substring(0, 50)}...' : textToSpeak,
+      'textPreview': textToSpeak.length > 50
+          ? '${textToSpeak.substring(0, 50)}...'
+          : textToSpeak,
     });
 
     _enqueue(textToSpeak, VoicePriority.normal, stepIndex: stepIndex);
 
     // Also speak next maneuver hint if available (e.g., "а затем через 50 метров направо")
     if (step.nextManeuverHint != null) {
-      _enqueue(step.nextManeuverHint!, VoicePriority.normal, stepIndex: stepIndex);
+      _enqueue(step.nextManeuverHint!, VoicePriority.normal,
+          stepIndex: stepIndex);
     }
 
     return true;
@@ -417,7 +430,8 @@ class VoiceGuidance {
   /// Speaks text and waits for TTS to complete.
   Future<void> _speakAndWait(String text) async {
     if (!_initialized) {
-      NavigationLogger.warn('VoiceGuidance', '_speakAndWait skipped - TTS not initialized');
+      NavigationLogger.warn(
+          'VoiceGuidance', '_speakAndWait skipped - TTS not initialized');
       return;
     }
 
@@ -431,7 +445,8 @@ class VoiceGuidance {
     }
 
     void onError(dynamic error) {
-      NavigationLogger.warn('VoiceGuidance', '_speakAndWait error', {'error': error});
+      NavigationLogger.warn(
+          'VoiceGuidance', '_speakAndWait error', {'error': error});
       if (!completer.isCompleted) {
         completer.complete(); // Complete anyway to not block
       }
@@ -484,7 +499,8 @@ class VoiceGuidance {
       return;
     }
     if (_offRouteSpoken) {
-      NavigationLogger.debug('VoiceGuidance', 'speakOffRoute skipped - already spoken', {
+      NavigationLogger.debug(
+          'VoiceGuidance', 'speakOffRoute skipped - already spoken', {
         'waitingForReturn': _waitingForReturnToRoute,
       });
       return;
@@ -515,7 +531,8 @@ class VoiceGuidance {
       // User returned to route - allow future off-route announcements
       _offRouteSpoken = false;
       _waitingForReturnToRoute = false;
-      NavigationLogger.info('VoiceGuidance', 'User returned to route, off-route state reset');
+      NavigationLogger.info(
+          'VoiceGuidance', 'User returned to route, off-route state reset');
     }
   }
 
@@ -579,7 +596,8 @@ class VoiceGuidance {
   ///
   /// Queued with normal priority by default.
   /// Use [priority] parameter to specify high priority for important messages.
-  Future<void> speakText(String text, {VoicePriority priority = VoicePriority.normal}) async {
+  Future<void> speakText(String text,
+      {VoicePriority priority = VoicePriority.normal}) async {
     if (!options.enabled) {
       NavigationLogger.debug('VoiceGuidance', 'speakText skipped - disabled');
       return;
@@ -598,7 +616,8 @@ class VoiceGuidance {
   /// [stepIndex] - Optional step index for filtering stale items.
   void _enqueue(String text, VoicePriority priority, {int? stepIndex}) {
     if (!_initialized) {
-      NavigationLogger.warn('VoiceGuidance', '_enqueue skipped - TTS not initialized');
+      NavigationLogger.warn(
+          'VoiceGuidance', '_enqueue skipped - TTS not initialized');
       return;
     }
 
@@ -620,11 +639,13 @@ class VoiceGuidance {
 
       if (options.interruptOnHighPriority && _isPlaying) {
         // Interrupt current playback
-        NavigationLogger.debug('VoiceGuidance', '_enqueue interrupting current playback');
+        NavigationLogger.debug(
+            'VoiceGuidance', '_enqueue interrupting current playback');
         _tts.stop().then((_) {
           // Insert at front of queue
           _queue.insert(0, item);
-          NavigationLogger.debug('VoiceGuidance', '_enqueue inserted at front after stop', {
+          NavigationLogger.debug(
+              'VoiceGuidance', '_enqueue inserted at front after stop', {
             'queueSize': _queue.length,
           });
           _processQueue();
@@ -638,7 +659,8 @@ class VoiceGuidance {
           insertIndex++;
         }
         _queue.insert(insertIndex, item);
-        NavigationLogger.debug('VoiceGuidance', '_enqueue inserted high priority', {
+        NavigationLogger.debug(
+            'VoiceGuidance', '_enqueue inserted high priority', {
           'insertIndex': insertIndex,
           'queueSize': _queue.length,
         });
@@ -671,7 +693,8 @@ class VoiceGuidance {
     // Remove oldest normal-priority items (iterate from start)
     for (int i = 0; i < _queue.length && removed < overflow;) {
       if (_queue[i].priority == VoicePriority.normal) {
-        NavigationLogger.debug('VoiceGuidance', '_handleQueueOverflow removing', {
+        NavigationLogger.debug(
+            'VoiceGuidance', '_handleQueueOverflow removing', {
           'itemId': _queue[i].id,
         });
         _queue.removeAt(i);
@@ -682,7 +705,8 @@ class VoiceGuidance {
     }
 
     if (removed < overflow) {
-      NavigationLogger.warn('VoiceGuidance', '_handleQueueOverflow incomplete', {
+      NavigationLogger.warn(
+          'VoiceGuidance', '_handleQueueOverflow incomplete', {
         'removed': removed,
         'overflow': overflow,
         'reason': 'high priority items protected',
@@ -694,7 +718,8 @@ class VoiceGuidance {
   void _processQueue() {
     // Prevent re-entry
     if (_isProcessing) {
-      NavigationLogger.debug('VoiceGuidance', '_processQueue skipped - already processing');
+      NavigationLogger.debug(
+          'VoiceGuidance', '_processQueue skipped - already processing');
       return;
     }
 
@@ -703,7 +728,8 @@ class VoiceGuidance {
       final nextItem = _queue.first;
       // Skip items that belong to old steps
       // High priority items (arrival, off-route) have stepIndex=null and are never skipped
-      if (nextItem.stepIndex != null && nextItem.stepIndex! < _currentStepIndex) {
+      if (nextItem.stepIndex != null &&
+          nextItem.stepIndex! < _currentStepIndex) {
         _queue.removeAt(0);
         continue;
       }
@@ -726,7 +752,8 @@ class VoiceGuidance {
       _isProcessing = false;
       // Completion handler will call _processQueue() when TTS finishes
     }).catchError((error, stack) {
-      NavigationLogger.error('VoiceGuidance', '_processQueue error speaking', error, stack);
+      NavigationLogger.error(
+          'VoiceGuidance', '_processQueue error speaking', error, stack);
       _isPlaying = false;
       _isProcessing = false;
       _currentItemId = null;
@@ -742,7 +769,8 @@ class VoiceGuidance {
       // NO stop() call here - let the queue manage playback
       await _tts.speak(text);
     } catch (error, stack) {
-      NavigationLogger.error('VoiceGuidance', '_speakDirect failed', error, stack);
+      NavigationLogger.error(
+          'VoiceGuidance', '_speakDirect failed', error, stack);
       rethrow;
     }
   }
@@ -783,7 +811,8 @@ class VoiceGuidance {
       await _tts.stop();
       NavigationLogger.debug('VoiceGuidance', 'stopAndClear TTS stopped');
     } catch (error) {
-      NavigationLogger.warn('VoiceGuidance', 'stopAndClear error stopping TTS', {
+      NavigationLogger.warn(
+          'VoiceGuidance', 'stopAndClear error stopping TTS', {
         'error': error.toString(),
       });
     }

@@ -75,12 +75,14 @@ class CacheDatabase extends _$CacheDatabase {
               ALTER TABLE offline_regions
               ADD COLUMN region_type TEXT NOT NULL DEFAULT 'custom'
             ''');
-            NavigationLogger.info(_logTag, 'Migrated to v2: added tile download fields');
+            NavigationLogger.info(
+                _logTag, 'Migrated to v2: added tile download fields');
           }
 
           // Migration from v2 to v3: add offline packages tables
           if (from < 3) {
-            NavigationLogger.info(_logTag, 'Migrating v2 → v3: adding package tables');
+            NavigationLogger.info(
+                _logTag, 'Migrating v2 → v3: adding package tables');
 
             // Create offline_packages table
             await customStatement('''
@@ -130,7 +132,8 @@ class CacheDatabase extends _$CacheDatabase {
               ON package_contents(package_id)
             ''');
 
-            NavigationLogger.info(_logTag, 'Migrated to v3: added package tables');
+            NavigationLogger.info(
+                _logTag, 'Migrated to v3: added package tables');
           }
         },
         beforeOpen: (details) async {
@@ -164,7 +167,8 @@ class CacheDatabase extends _$CacheDatabase {
   /// Delete expired geocode cache entries.
   Future<int> deleteExpiredGeocodeCache() async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    return (delete(geocodeCacheTable)..where((t) => t.expiresAt.isSmallerThanValue(now)))
+    return (delete(geocodeCacheTable)
+          ..where((t) => t.expiresAt.isSmallerThanValue(now)))
         .go();
   }
 
@@ -210,7 +214,8 @@ class CacheDatabase extends _$CacheDatabase {
   /// Delete expired reverse cache entries.
   Future<int> deleteExpiredReverseCache() async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    return (delete(reverseCacheTable)..where((t) => t.expiresAt.isSmallerThanValue(now)))
+    return (delete(reverseCacheTable)
+          ..where((t) => t.expiresAt.isSmallerThanValue(now)))
         .go();
   }
 
@@ -238,14 +243,16 @@ class CacheDatabase extends _$CacheDatabase {
 
   /// Get route cache entry by route hash.
   Future<RouteCacheTableData?> getRouteCacheByHash(String routeHash) async {
-    return (select(routeCacheTable)..where((t) => t.routeHash.equals(routeHash)))
+    return (select(routeCacheTable)
+          ..where((t) => t.routeHash.equals(routeHash)))
         .getSingleOrNull();
   }
 
   /// Delete expired route cache entries.
   Future<int> deleteExpiredRouteCache() async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    return (delete(routeCacheTable)..where((t) => t.expiresAt.isSmallerThanValue(now)))
+    return (delete(routeCacheTable)
+          ..where((t) => t.expiresAt.isSmallerThanValue(now)))
         .go();
   }
 
@@ -267,7 +274,8 @@ class CacheDatabase extends _$CacheDatabase {
   // ============================================================
 
   /// Insert or update smart search cache entry.
-  Future<int> upsertSmartSearchCache(SmartSearchCacheTableCompanion entry) async {
+  Future<int> upsertSmartSearchCache(
+      SmartSearchCacheTableCompanion entry) async {
     return into(smartSearchCacheTable).insertOnConflictUpdate(entry);
   }
 
@@ -397,7 +405,8 @@ class CacheDatabase extends _$CacheDatabase {
   }
 
   /// Get packages by status.
-  Future<List<OfflinePackageTableData>> getPackagesByStatus(String status) async {
+  Future<List<OfflinePackageTableData>> getPackagesByStatus(
+      String status) async {
     return (select(offlinePackageTable)
           ..where((t) => t.status.equals(status))
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
@@ -406,7 +415,8 @@ class CacheDatabase extends _$CacheDatabase {
 
   /// Delete an offline package and all its contents (cascade).
   Future<int> deletePackage(String packageId) async {
-    NavigationLogger.info(_logTag, 'Deleting package', {'packageId': packageId});
+    NavigationLogger.info(
+        _logTag, 'Deleting package', {'packageId': packageId});
 
     // Contents are deleted automatically via ON DELETE CASCADE
     return (delete(offlinePackageTable)
@@ -541,7 +551,8 @@ class CacheDatabase extends _$CacheDatabase {
   /// Get package with all its contents.
   ///
   /// Returns a tuple of (package, contents) or null if not found.
-  Future<(OfflinePackageTableData, List<PackageContentTableData>)?> getPackageWithContents(
+  Future<(OfflinePackageTableData, List<PackageContentTableData>)?>
+      getPackageWithContents(
     String packageId,
   ) async {
     final package = await getPackage(packageId);

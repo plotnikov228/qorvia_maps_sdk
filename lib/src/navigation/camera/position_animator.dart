@@ -297,8 +297,7 @@ class PositionAnimator {
     if (_blendStartTime == null) return;
 
     const transitionDurationMs = 500;
-    final elapsed =
-        DateTime.now().difference(_blendStartTime!).inMilliseconds;
+    final elapsed = DateTime.now().difference(_blendStartTime!).inMilliseconds;
     final progress = (elapsed / transitionDurationMs).clamp(0.0, 1.0);
 
     switch (_routeState) {
@@ -408,12 +407,13 @@ class PositionAnimator {
         return freePos;
 
       case _RouteTransitionState.offRoute:
-        return freePos ?? (routePos != null
-            ? _InterpolatedResult(
-                position: routePos.position,
-                bearing: routePos.bearing,
-              )
-            : null);
+        return freePos ??
+            (routePos != null
+                ? _InterpolatedResult(
+                    position: routePos.position,
+                    bearing: routePos.bearing,
+                  )
+                : null);
 
       case _RouteTransitionState.leavingRoute:
       case _RouteTransitionState.joiningRoute:
@@ -469,12 +469,31 @@ class PositionAnimator {
   /// Free-space interpolation (used when off-route).
   ///
   /// Strategy:
-  /// 1. If route available, use predictAlongRoute from MotionPredictor
-  /// 2. If 4+ control points, use Catmull-Rom spline
-  /// 3. If 2+ control points, use linear interpolation
-  /// 4. Fallback: dead-reckoning
+  /// 1. Near destination (< 150m): use simple linear interpolation to avoid overshoot
+  /// 2. If route available, use predictAlongRoute from MotionPredictor
+  /// 3. If 4+ control points, use Catmull-Rom spline
+  /// 4. If 2+ control points, use linear interpolation
+  /// 5. Fallback: dead-reckoning
   _InterpolatedResult? _interpolateFreeSpace(Duration dt) {
     if (_controlPoints.isEmpty) return null;
+
+    final now = DateTime.now();
+    final lastPoint = _controlPoints.last;
+    final timeSinceLastPoint =
+        now.difference(lastPoint.timestamp).inMicroseconds / 1e6;
+
+    // Near destination guard: use simple interpolation to prevent overshoot/jump
+    // Catmull-Rom extrapolation can project to wrong positions when user is stopping
+    if (_isNearDestination()) {
+      // Use last known position with minimal movement
+      if (_controlPoints.length >= 2 && timeSinceLastPoint < 2.0) {
+        return _linearInterpolateClamped(timeSinceLastPoint);
+      }
+      return _InterpolatedResult(
+        position: lastPoint.position,
+        bearing: lastPoint.bearing,
+      );
+    }
 
     // Try route-constrained prediction (MotionPredictor, for off-route smoothing)
     if (_routePolyline != null && _routePolyline!.length > 1) {
@@ -501,11 +520,6 @@ class PositionAnimator {
       }
     }
 
-    final now = DateTime.now();
-    final lastPoint = _controlPoints.last;
-    final timeSinceLastPoint =
-        now.difference(lastPoint.timestamp).inMicroseconds / 1e6;
-
     if (_controlPoints.length >= 4 && timeSinceLastPoint < 2.0) {
       return _catmullRomInterpolate(timeSinceLastPoint);
     }
@@ -515,6 +529,68 @@ class PositionAnimator {
     }
 
     return _deadReckon(lastPoint, timeSinceLastPoint);
+  }
+
+  /// Check if we're near the destination (within 150m).
+  /// When near destination, use simpler interpolation to avoid overshoot.
+  bool _isNearDestination() {
+    if (_routePolyline == null || _routePolyline!.isEmpty) return false;
+    if (_currentPosition == null) return false;
+
+    final destination = _routePolyline!.last;
+    final distanceToDestination = _currentPosition!.distanceTo(destination);
+
+    return distanceToDestination < 150.0;
+  }
+
+  /// Linear interpolation with strict clamping for near-destination use.
+  /// Limits maximum projection distance to prevent position jumps.
+  _InterpolatedResult _linearInterpolateClamped(double timeSinceLastPoint) {
+    final n = _controlPoints.length;
+    final prev = _controlPoints[n - 2];
+    final last = _controlPoints[n - 1];
+
+    final dt = last.timestamp.difference(prev.timestamp).inMicroseconds / 1e6;
+    if (dt <= 0) {
+      return _InterpolatedResult(
+        position: last.position,
+        bearing: last.bearing,
+      );
+    }
+
+    final vLat = (last.position.lat - prev.position.lat) / dt;
+    final vLon = (last.position.lon - prev.position.lon) / dt;
+
+    // Strict time clamp for near-destination: max 0.5 seconds of projection
+    final t = timeSinceLastPoint.clamp(0.0, 0.5);
+
+    var lat = last.position.lat + vLat * t;
+    var lon = last.position.lon + vLon * t;
+
+    lat = lat.clamp(-90.0, 90.0);
+    lon = lon.clamp(-180.0, 180.0);
+
+    final result = Coordinates(lat: lat, lon: lon);
+
+    // Strict distance clamp: max 15m from last known position
+    const maxDistNearDestination = 15.0;
+    if (result.distanceTo(last.position) > maxDistNearDestination) {
+      return _InterpolatedResult(
+        position: last.position,
+        bearing: last.bearing,
+      );
+    }
+
+    final bearingDelta =
+        BearingSmoother.shortestAngleDelta(prev.bearing, last.bearing);
+    final bearingRate = bearingDelta / dt;
+    var bearing = (last.bearing + bearingRate * t) % 360;
+    if (bearing < 0) bearing += 360;
+
+    return _InterpolatedResult(
+      position: result,
+      bearing: bearing,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -562,9 +638,35 @@ class PositionAnimator {
     final bearing = (p3.bearing + bearingDelta * t) % 360;
 
     final result = Coordinates(lat: clampedLat, lon: clampedLon);
-    final maxDist = _currentSpeed * 2.0;
-    if (maxDist > 0 && result.distanceTo(p3.position) > maxDist) {
+
+    // Safety check 1: distance from last GPS point
+    // At high speed, allow up to 2 seconds of travel, but cap at 60m absolute
+    final maxDistFromSpeed = _currentSpeed * 2.0;
+    const maxAbsoluteDist =
+        60.0; // Never allow more than 60m from last known position
+    final maxDist = maxDistFromSpeed > 0
+        ? math.min(maxDistFromSpeed, maxAbsoluteDist)
+        : maxAbsoluteDist;
+
+    if (result.distanceTo(p3.position) > maxDist) {
       return _deadReckon(p3, timeSinceLastPoint);
+    }
+
+    // Safety check 2: ensure result is along the general direction of travel
+    // If the spline produces a point in the opposite direction, use dead-reckoning
+    if (_currentSpeed > 5.0) {
+      // Only check when moving (>18 km/h)
+      final lastTravelBearing = p2.position.bearingTo(p3.position);
+      final interpolatedBearing = p3.position.bearingTo(result);
+      final bearingDeviation = BearingSmoother.shortestAngleDelta(
+        lastTravelBearing,
+        interpolatedBearing,
+      ).abs();
+
+      // If interpolated position is more than 90° off from travel direction, reject
+      if (bearingDeviation > 90.0) {
+        return _deadReckon(p3, timeSinceLastPoint);
+      }
     }
 
     return _InterpolatedResult(
@@ -598,8 +700,7 @@ class PositionAnimator {
     final prev = _controlPoints[n - 2];
     final last = _controlPoints[n - 1];
 
-    final dt =
-        last.timestamp.difference(prev.timestamp).inMicroseconds / 1e6;
+    final dt = last.timestamp.difference(prev.timestamp).inMicroseconds / 1e6;
     if (dt <= 0) {
       return _InterpolatedResult(
         position: last.position,
@@ -641,8 +742,7 @@ class PositionAnimator {
     const maxAlpha = 0.40;
     const lowSpeed = 3.0;
     const highSpeed = 20.0;
-    final t =
-        ((speedMs - lowSpeed) / (highSpeed - lowSpeed)).clamp(0.0, 1.0);
+    final t = ((speedMs - lowSpeed) / (highSpeed - lowSpeed)).clamp(0.0, 1.0);
     return minAlpha + (maxAlpha - minAlpha) * t;
   }
 

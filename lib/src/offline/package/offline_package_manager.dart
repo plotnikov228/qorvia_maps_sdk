@@ -279,7 +279,8 @@ class OfflinePackageManager {
         neLon: Value(params.bounds.northeast.lon),
         minZoom: Value(params.minZoom),
         maxZoom: Value(params.maxZoom),
-        styleUrl: Value(effectiveStyleUrl.isNotEmpty ? effectiveStyleUrl : null),
+        styleUrl:
+            Value(effectiveStyleUrl.isNotEmpty ? effectiveStyleUrl : null),
         status: const Value('pending'),
         totalSizeBytes: Value(estimatedSize),
         downloadedSizeBytes: const Value(0),
@@ -368,9 +369,7 @@ class OfflinePackageManager {
   Future<List<OfflinePackage>> getPackagesByStatus(PackageStatus status) async {
     _ensureInitialized();
 
-    return _cachedPackages.values
-        .where((p) => p.status == status)
-        .toList()
+    return _cachedPackages.values.where((p) => p.status == status).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
@@ -395,7 +394,8 @@ class OfflinePackageManager {
   Future<void> deletePackage(String packageId) async {
     _ensureInitialized();
 
-    NavigationLogger.info(_logTag, 'Deleting package', {'packageId': packageId});
+    NavigationLogger.info(
+        _logTag, 'Deleting package', {'packageId': packageId});
 
     final package = _cachedPackages[packageId];
 
@@ -544,7 +544,8 @@ class OfflinePackageManager {
           contentProgress: progress.contentProgress,
           currentlyDownloading: contentType,
         );
-        controller.add(PackageDownloadEvent.contentStarted(progress, contentType));
+        controller
+            .add(PackageDownloadEvent.contentStarted(progress, contentType));
 
         // Download the content
         try {
@@ -570,7 +571,8 @@ class OfflinePackageManager {
               controller.add(PackageDownloadEvent.progress(progress));
 
               // Update database periodically
-              _updateContentProgressInDb(packageId, contentType, downloaded, total);
+              _updateContentProgressInDb(
+                  packageId, contentType, downloaded, total);
             },
           );
 
@@ -594,7 +596,8 @@ class OfflinePackageManager {
             result.checksum,
           );
 
-          controller.add(PackageDownloadEvent.contentCompleted(progress, contentType));
+          controller.add(
+              PackageDownloadEvent.contentCompleted(progress, contentType));
 
           NavigationLogger.info(_logTag, 'Content download completed', {
             'packageId': packageId,
@@ -625,9 +628,11 @@ class OfflinePackageManager {
       }
 
       // Determine final status
-      final allComplete = progress.contentProgress.values.every((p) => p.isComplete);
+      final allComplete =
+          progress.contentProgress.values.every((p) => p.isComplete);
       final anyFailed = progress.contentProgress.values.any((p) => p.hasFailed);
-      final anyComplete = progress.contentProgress.values.any((p) => p.isComplete);
+      final anyComplete =
+          progress.contentProgress.values.any((p) => p.isComplete);
 
       PackageStatus finalStatus;
       if (allComplete) {
@@ -750,7 +755,9 @@ class OfflinePackageManager {
       filePath,
     )) {
       final downloaded = progress.receivedBytes;
-      final total = progress.totalBytes > 0 ? progress.totalBytes : extractResponse.sizeBytes;
+      final total = progress.totalBytes > 0
+          ? progress.totalBytes
+          : extractResponse.sizeBytes;
 
       // Throttle progress updates
       final currentProgress = (progress.progress * 100).round();
@@ -777,7 +784,8 @@ class OfflinePackageManager {
     // Find matching routing region
     NavigationLogger.info(_logTag, 'Searching routing regions for bounds', {
       'packageId': package.id,
-      'bounds': '${package.bounds.southwest.lat},${package.bounds.southwest.lon} - ${package.bounds.northeast.lat},${package.bounds.northeast.lon}',
+      'bounds':
+          '${package.bounds.southwest.lat},${package.bounds.southwest.lon} - ${package.bounds.northeast.lat},${package.bounds.northeast.lon}',
     });
 
     final regions = await _routingService.getRegionsForBounds(package.bounds);
@@ -806,7 +814,9 @@ class OfflinePackageManager {
       filePath,
     )) {
       final downloaded = progress.receivedBytes;
-      final total = progress.totalBytes > 0 ? progress.totalBytes : downloadInfo.sizeBytes;
+      final total = progress.totalBytes > 0
+          ? progress.totalBytes
+          : downloadInfo.sizeBytes;
 
       final currentProgress = (progress.progress * 100).round();
       if (currentProgress != lastReportedProgress) {
@@ -844,7 +854,8 @@ class OfflinePackageManager {
     // Find matching geocoding region
     NavigationLogger.info(_logTag, 'Searching geocoding regions for bounds', {
       'packageId': package.id,
-      'bounds': '${package.bounds.southwest.lat},${package.bounds.southwest.lon} - ${package.bounds.northeast.lat},${package.bounds.northeast.lon}',
+      'bounds':
+          '${package.bounds.southwest.lat},${package.bounds.southwest.lon} - ${package.bounds.northeast.lat},${package.bounds.northeast.lon}',
     });
 
     final regions = await _geocodingService.getRegionsForBounds(package.bounds);
@@ -872,7 +883,9 @@ class OfflinePackageManager {
       filePath,
     )) {
       final downloaded = progress.receivedBytes;
-      final total = progress.totalBytes > 0 ? progress.totalBytes : downloadInfo.sizeBytes;
+      final total = progress.totalBytes > 0
+          ? progress.totalBytes
+          : downloadInfo.sizeBytes;
 
       final currentProgress = (progress.progress * 100).round();
       if (currentProgress != lastReportedProgress) {
@@ -894,7 +907,8 @@ class OfflinePackageManager {
     }
 
     // Validate database integrity
-    final isValidDb = await _geocodingService.validateDatabaseIntegrity(filePath);
+    final isValidDb =
+        await _geocodingService.validateDatabaseIntegrity(filePath);
     if (!isValidDb) {
       await File(filePath).delete();
       throw StateError('Geocoding database is corrupted');
@@ -942,7 +956,9 @@ class OfflinePackageManager {
       filePath,
     )) {
       final downloaded = progress.receivedBytes;
-      final total = progress.totalBytes > 0 ? progress.totalBytes : downloadInfo.sizeBytes;
+      final total = progress.totalBytes > 0
+          ? progress.totalBytes
+          : downloadInfo.sizeBytes;
 
       final currentProgress = (progress.progress * 100).round();
       if (currentProgress != lastReportedProgress) {
@@ -1096,7 +1112,8 @@ class OfflinePackageManager {
   Future<void> pauseDownload(String packageId) async {
     _ensureInitialized();
 
-    NavigationLogger.info(_logTag, 'Pausing download', {'packageId': packageId});
+    NavigationLogger.info(
+        _logTag, 'Pausing download', {'packageId': packageId});
 
     // Close the stream
     final controller = _downloadStreams.remove(packageId);
@@ -1124,7 +1141,8 @@ class OfflinePackageManager {
       throw StateError('Cannot resume package with status: ${package.status}');
     }
 
-    NavigationLogger.info(_logTag, 'Resuming download', {'packageId': packageId});
+    NavigationLogger.info(
+        _logTag, 'Resuming download', {'packageId': packageId});
 
     return downloadPackage(packageId);
   }
@@ -1133,7 +1151,8 @@ class OfflinePackageManager {
   Future<void> cancelDownload(String packageId) async {
     _ensureInitialized();
 
-    NavigationLogger.info(_logTag, 'Cancelling download', {'packageId': packageId});
+    NavigationLogger.info(
+        _logTag, 'Cancelling download', {'packageId': packageId});
 
     await deletePackage(packageId);
   }
@@ -1165,23 +1184,17 @@ class OfflinePackageManager {
 
   /// Gets all packages with completed tiles.
   List<OfflinePackage> get packagesWithTiles {
-    return _cachedPackages.values
-        .where((p) => p.hasTilesReady)
-        .toList();
+    return _cachedPackages.values.where((p) => p.hasTilesReady).toList();
   }
 
   /// Gets all packages with completed routing.
   List<OfflinePackage> get packagesWithRouting {
-    return _cachedPackages.values
-        .where((p) => p.hasRoutingReady)
-        .toList();
+    return _cachedPackages.values.where((p) => p.hasRoutingReady).toList();
   }
 
   /// Gets all packages with completed geocoding.
   List<OfflinePackage> get packagesWithGeocoding {
-    return _cachedPackages.values
-        .where((p) => p.hasGeocodingReady)
-        .toList();
+    return _cachedPackages.values.where((p) => p.hasGeocodingReady).toList();
   }
 
   /// Finds a package suitable for offline routing between two points.

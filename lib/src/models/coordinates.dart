@@ -14,7 +14,8 @@ class Coordinates extends Equatable {
     required this.lat,
     required this.lon,
   })  : assert(lat >= -90 && lat <= 90, 'Latitude must be between -90 and 90'),
-        assert(lon >= -180 && lon <= 180, 'Longitude must be between -180 and 180');
+        assert(lon >= -180 && lon <= 180,
+            'Longitude must be between -180 and 180');
 
   /// Creates coordinates from a map with 'lat' and 'lon' keys.
   factory Coordinates.fromJson(Map<String, dynamic> json) {

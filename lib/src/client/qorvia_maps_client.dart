@@ -82,8 +82,10 @@ class QorviaMapsClient {
   // Service getters with lazy initialization
   RoutingService get _routing =>
       _routingService ??= RoutingService(_httpClient, _config);
-  GeocodingService get _geocoding => _geocodingService ??= GeocodingService(_httpClient);
-  ReverseService get _reverse => _reverseService ??= ReverseService(_httpClient);
+  GeocodingService get _geocoding =>
+      _geocodingService ??= GeocodingService(_httpClient);
+  ReverseService get _reverse =>
+      _reverseService ??= ReverseService(_httpClient);
   QuotaService get _quota => _quotaService ??= QuotaService(_httpClient);
   TileService get _tile => _tileService ??= TileService(_httpClient);
   SmartSearchService get _smartSearch =>

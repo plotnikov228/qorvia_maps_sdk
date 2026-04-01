@@ -1,3 +1,5 @@
+package android
+
 group = 'ru.qorviamapkit.maps_sdk'
 version = '1.0'
 

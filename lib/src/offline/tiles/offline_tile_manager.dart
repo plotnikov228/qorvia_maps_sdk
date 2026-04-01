@@ -195,7 +195,8 @@ class OfflineTileManager {
   /// Marks regions as failed if their files don't exist.
   Future<void> _syncWithFiles() async {
     for (final region in _cachedRegions.values.toList()) {
-      if (region.filePath != null && region.status == OfflineRegionStatus.completed) {
+      if (region.filePath != null &&
+          region.status == OfflineRegionStatus.completed) {
         final file = File(region.filePath!);
         if (!await file.exists()) {
           NavigationLogger.warn(_logTag, 'Region file missing', {
@@ -570,7 +571,8 @@ class OfflineTileManager {
           'regions': mergedRegions.map((r) => r.id).toList(),
         });
       } catch (e) {
-        NavigationLogger.warn(_logTag, 'mergeOfflineRegions failed, trying installOfflineMapTiles', {
+        NavigationLogger.warn(_logTag,
+            'mergeOfflineRegions failed, trying installOfflineMapTiles', {
           'error': e.toString(),
         });
         // Fallback to installOfflineMapTiles
@@ -764,10 +766,11 @@ class OfflineTileManager {
         final nativeId = int.tryParse(nativeIdStr);
         if (nativeId != null) {
           final nativeRegions = await maplibre.getListOfRegions();
-          final nativeRegion = nativeRegions.cast<maplibre.OfflineRegion?>().firstWhere(
-            (r) => r?.id == nativeId,
-            orElse: () => null,
-          );
+          final nativeRegion =
+              nativeRegions.cast<maplibre.OfflineRegion?>().firstWhere(
+                    (r) => r?.id == nativeId,
+                    orElse: () => null,
+                  );
           if (nativeRegion != null) {
             await maplibre.deleteOfflineRegion(nativeId);
             NavigationLogger.debug(_logTag, 'Deleted native MapLibre region', {
@@ -798,7 +801,11 @@ class OfflineTileManager {
         NavigationLogger.warn(
           _logTag,
           'Failed to delete tiles file',
-          {'regionId': regionId, 'filePath': region?.filePath, 'error': e.toString()},
+          {
+            'regionId': regionId,
+            'filePath': region?.filePath,
+            'error': e.toString()
+          },
         );
       }
     }
@@ -864,7 +871,8 @@ class OfflineTileManager {
   /// Gets all completed offline regions.
   List<OfflineRegion> get completedRegions {
     return _cachedRegions.values
-        .where((r) => r.status == OfflineRegionStatus.completed && r.filePath != null)
+        .where((r) =>
+            r.status == OfflineRegionStatus.completed && r.filePath != null)
         .toList();
   }
 
@@ -981,7 +989,8 @@ class OfflineTileManager {
 
       return stylePath;
     } catch (e, stack) {
-      NavigationLogger.error(_logTag, 'Failed to generate offline style', e, stack);
+      NavigationLogger.error(
+          _logTag, 'Failed to generate offline style', e, stack);
       return null;
     }
   }
@@ -1095,7 +1104,8 @@ class OfflineTileManager {
 
       return deleted;
     } catch (e, stack) {
-      NavigationLogger.error(_logTag, 'Failed to reset native database', e, stack);
+      NavigationLogger.error(
+          _logTag, 'Failed to reset native database', e, stack);
       return false;
     }
   }
@@ -1142,12 +1152,14 @@ class OfflineTileManager {
       _nativeDatabaseVerified = true;
       NavigationLogger.info(_logTag, 'Native offline database verified');
     } catch (e, stack) {
-      NavigationLogger.error(_logTag, 'Failed to verify native database', e, stack);
+      NavigationLogger.error(
+          _logTag, 'Failed to verify native database', e, stack);
 
       // Check if this is a "no such table" error - database is corrupted
       final errorStr = e.toString().toLowerCase();
       if (errorStr.contains('no such table') || errorStr.contains('database')) {
-        NavigationLogger.warn(_logTag, 'Database appears corrupted, attempting to fix...');
+        NavigationLogger.warn(
+            _logTag, 'Database appears corrupted, attempting to fix...');
 
         // Try to delete the corrupted database
         final deleted = await resetNativeDatabase();
@@ -1310,7 +1322,8 @@ class OfflineTileManager {
           } else if (event is maplibre.Success) {
             NavigationLogger.info(_logTag, 'Native download completed');
           } else if (event is maplibre.Error) {
-            NavigationLogger.error(_logTag, 'Native download error', event.cause);
+            NavigationLogger.error(
+                _logTag, 'Native download error', event.cause);
           }
         },
       );

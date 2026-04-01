@@ -16,6 +16,7 @@ import 'navigation_state.dart';
 import 'camera/camera_controller.dart';
 import 'camera/position_animator.dart';
 import 'tracking/route_tracker.dart';
+import 'tracking/route_cursor_engine.dart';
 import 'user_arrow/user_arrow_layer.dart';
 import 'user_arrow/route_line_manager.dart';
 import 'ui/next_turn_panel.dart';
@@ -306,6 +307,12 @@ class _NavigationViewState extends State<NavigationView>
             segIndex,
             snappedPos,
           );
+
+          // Additional arrival check: GPS close to destination at high speed
+          // (cursor may not catch up in time when moving fast)
+          if (!state.hasArrived) {
+            _checkGpsBasedArrival(location.coordinates, cursorEngine);
+          }
         }
       }
     }
@@ -316,6 +323,42 @@ class _NavigationViewState extends State<NavigationView>
     });
 
     widget.onStateChanged?.call(state);
+  }
+
+  /// Check if GPS has reached destination even if cursor hasn't caught up.
+  /// This handles high-speed scenarios where the cursor lags behind.
+  void _checkGpsBasedArrival(
+    Coordinates gpsPosition,
+    RouteCursorEngine? cursorEngine,
+  ) {
+    final polyline = widget.route.decodedPolyline;
+    if (polyline == null || polyline.isEmpty) return;
+
+    final destination = polyline.last;
+    final gpsDistanceToDestination = gpsPosition.distanceTo(destination);
+    final arrivalThreshold = widget.options.arrivalThreshold;
+
+    // Check 1: GPS within arrival threshold of destination
+    final gpsNearDestination = gpsDistanceToDestination < arrivalThreshold;
+
+    // Check 2: Cursor has covered most of the route (>95%)
+    final cursorNearEnd = cursorEngine != null &&
+        cursorEngine.totalDistance > 0 &&
+        cursorEngine.distanceAlongRoute >=
+            cursorEngine.totalDistance * 0.95;
+
+    if (gpsNearDestination || cursorNearEnd) {
+      NavigationLogger.info('NavigationView', 'GPS-based arrival detected', {
+        'gpsDistanceToDestination': gpsDistanceToDestination.toStringAsFixed(1),
+        'arrivalThreshold': arrivalThreshold,
+        'gpsNearDestination': gpsNearDestination,
+        'cursorNearEnd': cursorNearEnd,
+        'cursorProgress': cursorEngine != null && cursorEngine.totalDistance > 0
+            ? '${(cursorEngine.distanceAlongRoute / cursorEngine.totalDistance * 100).toStringAsFixed(1)}%'
+            : 'N/A',
+      });
+      _onArrival();
+    }
   }
 
   void _onArrival() {

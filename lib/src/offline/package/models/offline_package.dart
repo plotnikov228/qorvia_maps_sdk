@@ -50,7 +50,8 @@ extension PackageStatusX on PackageStatus {
 
   /// Whether any content is available for use.
   bool get hasUsableContent =>
-      this == PackageStatus.completed || this == PackageStatus.partiallyComplete;
+      this == PackageStatus.completed ||
+      this == PackageStatus.partiallyComplete;
 }
 
 /// Represents a unified offline package containing multiple content types.
@@ -188,10 +189,8 @@ class OfflinePackage {
   Set<PackageContentType> get contentTypes => contents.keys.toSet();
 
   /// Gets all content types that are ready for use.
-  Set<PackageContentType> get readyContentTypes => contents.entries
-      .where((e) => e.value.isReady)
-      .map((e) => e.key)
-      .toSet();
+  Set<PackageContentType> get readyContentTypes =>
+      contents.entries.where((e) => e.value.isReady).map((e) => e.key).toSet();
 
   /// Gets all content types that need download.
   Set<PackageContentType> get pendingContentTypes => contents.entries
@@ -214,11 +213,11 @@ class OfflinePackage {
   }
 
   /// Overall download progress as a percentage string.
-  String get progressPercentage => '${(overallProgress * 100).toStringAsFixed(1)}%';
+  String get progressPercentage =>
+      '${(overallProgress * 100).toStringAsFixed(1)}%';
 
   /// Number of content types that are ready.
-  int get readyContentCount =>
-      contents.values.where((c) => c.isReady).length;
+  int get readyContentCount => contents.values.where((c) => c.isReady).length;
 
   /// Total number of content types.
   int get totalContentCount => contents.length;
@@ -406,7 +405,8 @@ class OfflinePackage {
   }
 
   /// Calculates package status based on content statuses.
-  PackageStatus _calculateStatus(Map<PackageContentType, PackageContent> contents) {
+  PackageStatus _calculateStatus(
+      Map<PackageContentType, PackageContent> contents) {
     if (contents.isEmpty) return PackageStatus.pending;
 
     final allReady = contents.values.every((c) => c.isReady);
@@ -415,7 +415,8 @@ class OfflinePackage {
     final anyDownloading = contents.values.any((c) => c.isDownloading);
     if (anyDownloading) return PackageStatus.downloading;
 
-    final anyFailed = contents.values.any((c) => c.status == ContentStatus.failed);
+    final anyFailed =
+        contents.values.any((c) => c.status == ContentStatus.failed);
     final anyReady = contents.values.any((c) => c.isReady);
 
     if (anyFailed && anyReady) return PackageStatus.partiallyComplete;
@@ -645,15 +646,15 @@ class CreatePackageParams {
   int _latToTileY(double lat, int zoom) {
     final latRad = lat * math.pi / 180.0;
     final n = 1 << zoom;
-    return ((1.0 - math.log(math.tan(latRad) + 1.0 / math.cos(latRad)) / math.pi) /
+    return ((1.0 -
+                math.log(math.tan(latRad) + 1.0 / math.cos(latRad)) / math.pi) /
             2.0 *
             n)
         .floor();
   }
 
   @override
-  String toString() =>
-      'CreatePackageParams(name: $name, bounds: $bounds, '
+  String toString() => 'CreatePackageParams(name: $name, bounds: $bounds, '
       'zoom: $minZoom-$maxZoom, types: ${contentTypes.map((t) => t.name).join(', ')}, '
       '~$estimatedSizeFormatted)';
 }
@@ -705,8 +706,7 @@ class AvailablePackage {
   }
 
   @override
-  String toString() =>
-      'AvailablePackage(id: $id, name: $name, '
+  String toString() => 'AvailablePackage(id: $id, name: $name, '
       'content: ${availableContent.map((t) => t.name).join(', ')}, '
       'size: $estimatedSizeFormatted)';
 }

@@ -174,8 +174,12 @@ class ActiveSearchField {
     this.waypointIndex,
   });
 
-  const ActiveSearchField.from() : type = SearchFieldType.from, waypointIndex = null;
-  const ActiveSearchField.to() : type = SearchFieldType.to, waypointIndex = null;
+  const ActiveSearchField.from()
+      : type = SearchFieldType.from,
+        waypointIndex = null;
+  const ActiveSearchField.to()
+      : type = SearchFieldType.to,
+        waypointIndex = null;
   const ActiveSearchField.waypoint(int index)
       : type = SearchFieldType.waypoint,
         waypointIndex = index;
