@@ -1,3 +1,7 @@
+## 0.3.3
+
+- Fixed: Remove invalid `package` statement from android/build.gradle
+
 ## 0.3.2
 
 - Fixed: Static analysis errors (ConnectivityResult exhaustive switch, unused code)
