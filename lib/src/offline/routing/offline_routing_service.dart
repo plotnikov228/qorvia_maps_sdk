@@ -277,7 +277,6 @@ class OfflineRoutingService {
     final timeMillis = (result['time'] as num?)?.toDouble() ?? 0.0;
     final pointsRaw = result['points'] as List<Object?>? ?? [];
     final instructionsRaw = result['instructions'] as List<Object?>? ?? [];
-    final bbox = result['bbox'] as List<Object?>?;
 
     // Parse points into coordinates
     final points = <Coordinates>[];

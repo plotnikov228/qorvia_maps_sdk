@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -353,23 +352,6 @@ class OfflineGeocodingService {
     // Return null for now - actual implementation requires SQLite integration
     return null;
   }
-
-  /// Calculates Haversine distance between two points.
-  double _haversineDistance(
-    double lat1, double lon1,
-    double lat2, double lon2,
-  ) {
-    const earthRadius = 6371000.0; // meters
-    final dLat = _toRadians(lat2 - lat1);
-    final dLon = _toRadians(lon2 - lon1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_toRadians(lat1)) * math.cos(_toRadians(lat2)) *
-        math.sin(dLon / 2) * math.sin(dLon / 2);
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadius * c;
-  }
-
-  double _toRadians(double degrees) => degrees * math.pi / 180;
 
   /// Disposes resources.
   void dispose() {

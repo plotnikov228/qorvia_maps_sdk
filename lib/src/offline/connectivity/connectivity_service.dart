@@ -167,20 +167,12 @@ class ConnectivityService {
 
     // Check if we have any real connectivity
     for (final result in results) {
-      switch (result) {
-        case ConnectivityResult.wifi:
-        case ConnectivityResult.mobile:
-        case ConnectivityResult.ethernet:
-        case ConnectivityResult.vpn:
-          return NetworkStatus.online;
-        case ConnectivityResult.bluetooth:
-        case ConnectivityResult.other:
-          // These might provide connectivity, treat as online
-          return NetworkStatus.online;
-        case ConnectivityResult.none:
-          // Continue checking other results
-          continue;
+      if (result == ConnectivityResult.none) {
+        // Continue checking other results
+        continue;
       }
+      // Any connectivity type (wifi, mobile, ethernet, vpn, bluetooth, other, satellite, etc.)
+      return NetworkStatus.online;
     }
 
     // All results were 'none'

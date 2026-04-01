@@ -1,3 +1,8 @@
+## 0.3.2
+
+- Fixed: Static analysis errors (ConnectivityResult exhaustive switch, unused code)
+- Improved pub.dev score compliance
+
 ## 0.3.1
 
 - Fixed: iOS Permissions, iOS implementation, Position Animator, Catmull-Rom Interpolation
