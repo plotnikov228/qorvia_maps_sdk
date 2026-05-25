@@ -40,6 +40,7 @@ class QorviaMapController extends ChangeNotifier {
   final Map<String, Symbol> _markers = {};
   final Map<String, String> _symbolToMarkerId = {};
   final Map<String, Line> _routeLines = {};
+  final Map<String, Future<void>> _routeLineLocks = {};
   final Set<String> _registeredImages = {};
 
   // Original marker/route data for restoration after style change
@@ -116,6 +117,7 @@ class QorviaMapController extends ChangeNotifier {
     _symbolToMarkerId.clear();
     _registeredImages.clear();
     _routeLines.clear();
+    _routeLineLocks.clear();
     _markerData.clear();
     _routeLineData.clear();
     _iconRotationAlignmentConfigured = false;
@@ -1150,27 +1152,49 @@ class QorviaMapController extends ChangeNotifier {
   }
 
   /// Displays a route line on the map.
+  ///
+  /// Calls with the same route ID are serialized to prevent race conditions
+  /// where concurrent async operations could leave orphaned lines on the map.
   Future<void> displayRouteLine(RouteLine routeLine) async {
-    final controller = _mapController;
-    if (controller == null) return;
+    final id = routeLine.id;
 
-    // Remove existing route with same ID
-    await removeRoute(routeLine.id);
+    // Chain on any pending operation for this route ID
+    final pending = _routeLineLocks[id];
+    final completer = Completer<void>();
+    _routeLineLocks[id] = completer.future;
 
-    final line = await controller.addLine(
-      LineOptions(
-        geometry: routeLine.coordinates
-            .map((c) => LatLng(c.lat, c.lon))
-            .toList(),
-        lineColor: _colorToHex(routeLine.options.color),
-        lineWidth: routeLine.options.width,
-        lineOpacity: routeLine.options.opacity,
-      ),
-    );
+    if (pending != null) {
+      await pending;
+    }
 
-    _routeLines[routeLine.id] = line;
-    _routeLineData[routeLine.id] = routeLine; // Store original data for restoration
-    notifyListeners();
+    try {
+      final controller = _mapController;
+      if (controller == null) return;
+
+      // Remove existing route with same ID
+      await removeRoute(id);
+
+      final line = await controller.addLine(
+        LineOptions(
+          geometry: routeLine.coordinates
+              .map((c) => LatLng(c.lat, c.lon))
+              .toList(),
+          lineColor: _colorToHex(routeLine.options.color),
+          lineWidth: routeLine.options.width,
+          lineOpacity: routeLine.options.opacity,
+        ),
+      );
+
+      _routeLines[id] = line;
+      _routeLineData[id] = routeLine; // Store original data for restoration
+      notifyListeners();
+    } finally {
+      completer.complete();
+      // Clean up lock if this is still the latest operation
+      if (_routeLineLocks[id] == completer.future) {
+        _routeLineLocks.remove(id);
+      }
+    }
   }
 
   /// Updates a route line's coordinates without removing and recreating it.
@@ -2087,6 +2111,7 @@ class QorviaMapController extends ChangeNotifier {
     _symbolToMarkerId.clear();
     _registeredImages.clear();
     _routeLines.clear();
+    _routeLineLocks.clear();
     // Note: _markerData and _routeLineData are NOT cleared - we need them for restoration
 
     _log(_LogLevel.debug, 'setStyle: cleared state', {
@@ -2282,6 +2307,7 @@ class QorviaMapController extends ChangeNotifier {
     _mapController = null;
     _markers.clear();
     _routeLines.clear();
+    _routeLineLocks.clear();
     _registeredImages.clear();
     _markerData.clear();
     _routeLineData.clear();

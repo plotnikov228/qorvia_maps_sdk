@@ -74,9 +74,9 @@ class UserLocationLayer {
 
     dev.log(
       '[UserLocationLayer.attach] START '
-      'iconAsset=${style.iconAsset}, '
-      'iconSize=${style.iconSize}, '
-      'showAccuracyCircle=${style.showAccuracyCircle}',
+          'iconAsset=${style.iconAsset}, '
+          'iconSize=${style.iconSize}, '
+          'showAccuracyCircle=${style.showAccuracyCircle}',
       level: _logLevel,
     );
 
@@ -102,12 +102,12 @@ class UserLocationLayer {
   /// [animate] whether to animate the transition (default: true).
   /// [duration] animation duration (default: 500ms).
   Future<void> update(
-    Coordinates position,
-    double bearing, {
-    double accuracy = 0,
-    bool animate = true,
-    Duration? duration,
-  }) async {
+      Coordinates position,
+      double bearing, {
+        double accuracy = 0,
+        bool animate = true,
+        Duration? duration,
+      }) async {
     if (_mapController == null || !_layerAdded) {
       dev.log(
         '[UserLocationLayer.update] SKIP controller=$_mapController, layerAdded=$_layerAdded',
@@ -144,10 +144,10 @@ class UserLocationLayer {
 
   /// Sets position immediately without animation.
   Future<void> _setPositionImmediate(
-    Coordinates position,
-    double bearing,
-    double accuracy,
-  ) async {
+      Coordinates position,
+      double bearing,
+      double accuracy,
+      ) async {
     // Throttle updates for performance
     final now = DateTime.now();
     if (_lastUpdate != null &&
@@ -173,10 +173,10 @@ class UserLocationLayer {
 
       dev.log(
         '[UserLocationLayer.update] IMMEDIATE '
-        'lat=${position.lat.toStringAsFixed(6)}, '
-        'lon=${position.lon.toStringAsFixed(6)}, '
-        'bearing=${bearing.toStringAsFixed(1)}, '
-        'accuracy=${accuracy.toStringAsFixed(1)}',
+            'lat=${position.lat.toStringAsFixed(6)}, '
+            'lon=${position.lon.toStringAsFixed(6)}, '
+            'bearing=${bearing.toStringAsFixed(1)}, '
+            'accuracy=${accuracy.toStringAsFixed(1)}',
         level: _logLevel,
       );
     } catch (e, stack) {
@@ -191,11 +191,11 @@ class UserLocationLayer {
 
   /// Animates position from current to target.
   Future<void> _animateToPosition(
-    Coordinates targetPosition,
-    double targetBearing,
-    double accuracy,
-    Duration duration,
-  ) async {
+      Coordinates targetPosition,
+      double targetBearing,
+      double accuracy,
+      Duration duration,
+      ) async {
     // Cancel any running animation
     _animationTimer?.cancel();
 
@@ -210,10 +210,10 @@ class UserLocationLayer {
 
     dev.log(
       '[UserLocationLayer._animateToPosition] START '
-      'from=(${startPosition.lat.toStringAsFixed(6)}, ${startPosition.lon.toStringAsFixed(6)}) '
-      'to=(${targetPosition.lat.toStringAsFixed(6)}, ${targetPosition.lon.toStringAsFixed(6)}) '
-      'bearing=$startBearing→$targetBearing '
-      'duration=${duration.inMilliseconds}ms',
+          'from=(${startPosition.lat.toStringAsFixed(6)}, ${startPosition.lon.toStringAsFixed(6)}) '
+          'to=(${targetPosition.lat.toStringAsFixed(6)}, ${targetPosition.lon.toStringAsFixed(6)}) '
+          'bearing=$startBearing→$targetBearing '
+          'duration=${duration.inMilliseconds}ms',
       level: _logLevel,
     );
 
@@ -276,9 +276,9 @@ class UserLocationLayer {
 
         dev.log(
           '[UserLocationLayer._animateToPosition] COMPLETE '
-          'lat=${targetPosition.lat.toStringAsFixed(6)}, '
-          'lon=${targetPosition.lon.toStringAsFixed(6)}, '
-          'bearing=${targetBearing.toStringAsFixed(1)}',
+              'lat=${targetPosition.lat.toStringAsFixed(6)}, '
+              'lon=${targetPosition.lon.toStringAsFixed(6)}, '
+              'bearing=${targetBearing.toStringAsFixed(1)}',
           level: _logLevel,
         );
       }
@@ -341,6 +341,9 @@ class UserLocationLayer {
     if (_mapController == null) return;
 
     try {
+      // Clean up any existing layers/sources first to prevent "already exists" errors
+      await _removeExistingLayersIfAny();
+
       // 1. Add accuracy circle (bottom layer, drawn first)
       if (style.showAccuracyCircle) {
         await _mapController!.addGeoJsonSource(
@@ -409,6 +412,44 @@ class UserLocationLayer {
         error: e,
         stackTrace: stack,
       );
+    }
+  }
+
+  /// Removes existing layers and sources if they exist.
+  /// Prevents "Source/Layer already exists" errors on re-attach.
+  Future<void> _removeExistingLayersIfAny() async {
+    if (_mapController == null) return;
+
+    try {
+      // Remove layers first (layers depend on sources)
+      try {
+        await _mapController!.removeLayer(_kLayerId);
+      } catch (_) {
+        // Layer doesn't exist, ignore
+      }
+
+      try {
+        await _mapController!.removeLayer(_kAccuracyLayerId);
+      } catch (_) {
+        // Layer doesn't exist, ignore
+      }
+
+      // Then remove sources
+      try {
+        await _mapController!.removeSource(_kSourceId);
+      } catch (_) {
+        // Source doesn't exist, ignore
+      }
+
+      try {
+        await _mapController!.removeSource(_kAccuracySourceId);
+      } catch (_) {
+        // Source doesn't exist, ignore
+      }
+
+      dev.log('[UserLocationLayer._removeExistingLayersIfAny] Cleanup complete', level: _logLevel);
+    } catch (e) {
+      dev.log('[UserLocationLayer._removeExistingLayersIfAny] Cleanup error: $e', level: 800);
     }
   }
 

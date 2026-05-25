@@ -1,3 +1,8 @@
+## 0.3.4
+
+- Now, before adding sources/layers, they are removed if they already exist
+- Fixed: Race condition in `displayRouteLine` — concurrent calls with the same route ID no longer leave orphaned lines on the map
+
 ## 0.3.3
 
 - Fixed: Remove invalid `package` statement from android/build.gradle
